@@ -639,13 +639,14 @@ namespace System.Windows.Forms.Calendar
                 strs[i] = (i - 6).ToString();
             }
 
-            Font f = new Font(Font, FontStyle.Bold);
-
-            for (int i = 0; i < strs.Length; i++)
+            using (Font f = new Font(Font, FontStyle.Bold))
             {
-                Size s = TextRenderer.MeasureText(strs[i], f);
-                maxWidth = Math.Max(s.Width, maxWidth);
-                maxHeight = Math.Max(s.Height, maxHeight);
+                for (int i = 0; i < strs.Length; i++)
+                {
+                    Size s = TextRenderer.MeasureText(strs[i], f);
+                    maxWidth = Math.Max(s.Width, maxWidth);
+                    maxHeight = Math.Max(s.Height, maxHeight);
+                }
             }
 
             maxWidth += ItemPadding.Horizontal;

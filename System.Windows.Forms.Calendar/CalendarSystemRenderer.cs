@@ -193,40 +193,39 @@ namespace System.Windows.Forms.Calendar
             int shortX1 = TimeScaleBounds.Left + TimeScaleBounds.Width / 2;
             int shortX2 = largeX2;
             int top = 0;
-            Pen p = new Pen(ColorTable.TimeScaleLine);
-
-            for (int i = 0; i < e.Calendar.Days[0].TimeUnits.Length; i++)
+            using (Pen p = new Pen(ColorTable.TimeScaleLine))
             {
-                CalendarTimeScaleUnit unit = e.Calendar.Days[0].TimeUnits[i];
-
-                if (!unit.Visible) continue;
-
-                top = unit.Bounds.Top;
-
-                if (unit.Minutes == 0)
+                for (int i = 0; i < e.Calendar.Days[0].TimeUnits.Length; i++)
                 {
-                    e.Graphics.DrawLine(p, largeX1, top, largeX2, top);
+                    CalendarTimeScaleUnit unit = e.Calendar.Days[0].TimeUnits[i];
+
+                    if (!unit.Visible) continue;
+
+                    top = unit.Bounds.Top;
+
+                    if (unit.Minutes == 0)
+                    {
+                        e.Graphics.DrawLine(p, largeX1, top, largeX2, top);
+                    }
+                    else
+                    {
+                        e.Graphics.DrawLine(p, shortX1, top, shortX2, top);
+                    }
                 }
-                else
+
+                if (e.Calendar.DaysMode == CalendarDaysMode.Expanded
+                    && e.Calendar.Days != null
+                    && e.Calendar.Days.Length > 0
+                    && e.Calendar.Days[0].TimeUnits != null
+                    && e.Calendar.Days[0].TimeUnits.Length > 0
+                    )
                 {
-                    e.Graphics.DrawLine(p, shortX1, top, shortX2, top);
+                    top = e.Calendar.Days[0].BodyBounds.Top;
+
+                    //Timescale top line is full
+                    e.Graphics.DrawLine(p, TimeScaleBounds.Left, top, TimeScaleBounds.Right, top);
                 }
             }
-
-            if (e.Calendar.DaysMode == CalendarDaysMode.Expanded
-                && e.Calendar.Days != null
-                && e.Calendar.Days.Length > 0
-                && e.Calendar.Days[0].TimeUnits != null
-                && e.Calendar.Days[0].TimeUnits.Length > 0
-                )
-            {
-                top = e.Calendar.Days[0].BodyBounds.Top;
-                
-                //Timescale top line is full
-                e.Graphics.DrawLine(p, TimeScaleBounds.Left, top, TimeScaleBounds.Right, top);
-            }
-
-            p.Dispose();
 
             base.OnDrawTimeScale(e);
         }

@@ -1307,7 +1307,6 @@ namespace System.Windows.Forms.Calendar
                 || e.Calendar.Days[0].TimeUnits == null
                 ) return;
 
-            Font hourFont = new Font(e.Calendar.Font.FontFamily, e.Calendar.Font.Size * (e.Calendar.TimeScale == CalendarTimeScale.SixtyMinutes ? 1f : 1.5f));
             Font minuteFont = e.Calendar.Font;
             int hourLeft = TimeScaleBounds.Left;
             int hourWidth = TimeScaleBounds.Left + TimeScaleBounds.Width / 2;
@@ -1315,32 +1314,35 @@ namespace System.Windows.Forms.Calendar
             int minuteWidth = hourWidth;
             int k = 0;
 
-            for (int i = 0; i < e.Calendar.Days[0].TimeUnits.Length; i++)
+            using (Font hourFont = new Font(e.Calendar.Font.FontFamily, e.Calendar.Font.Size * (e.Calendar.TimeScale == CalendarTimeScale.SixtyMinutes ? 1f : 1.5f)))
             {
-                CalendarTimeScaleUnit unit = e.Calendar.Days[0].TimeUnits[i];
-
-                if (!unit.Visible) continue;
-
-                string hours = unit.Hours.ToString("00");
-                string minutes = unit.Minutes == 0 ? "00" : string.Empty;
-
-                if (!string.IsNullOrEmpty(minutes))
+                for (int i = 0; i < e.Calendar.Days[0].TimeUnits.Length; i++)
                 {
-                    if (hours == "00") hours = "12";
+                    CalendarTimeScaleUnit unit = e.Calendar.Days[0].TimeUnits[i];
 
-                    CalendarRendererBoxEventArgs hevt = new CalendarRendererBoxEventArgs(e, new Rectangle(hourLeft, unit.Bounds.Top, hourWidth, unit.Bounds.Height), hours, TextFormatFlags.Right);
+                    if (!unit.Visible) continue;
 
-                    hevt.Font = hourFont;
+                    string hours = unit.Hours.ToString("00");
+                    string minutes = unit.Minutes == 0 ? "00" : string.Empty;
 
-                    OnDrawTimeScaleHour(hevt);
+                    if (!string.IsNullOrEmpty(minutes))
+                    {
+                        if (hours == "00") hours = "12";
 
-                    if (k++ == 0 || unit.Hours == 0 || unit.Hours == 12 ) minutes = unit.Date.ToString("tt");
+                        CalendarRendererBoxEventArgs hevt = new CalendarRendererBoxEventArgs(e, new Rectangle(hourLeft, unit.Bounds.Top, hourWidth, unit.Bounds.Height), hours, TextFormatFlags.Right);
 
-                    CalendarRendererBoxEventArgs mevt = new CalendarRendererBoxEventArgs(e, new Rectangle(minuteLeft, unit.Bounds.Top, minuteWidth, unit.Bounds.Height), minutes, TextFormatFlags.Top | TextFormatFlags.Left);
+                        hevt.Font = hourFont;
 
-                    mevt.Font = minuteFont;
+                        OnDrawTimeScaleHour(hevt);
 
-                    OnDrawTimeScaleMinutes(mevt);
+                        if (k++ == 0 || unit.Hours == 0 || unit.Hours == 12 ) minutes = unit.Date.ToString("tt");
+
+                        CalendarRendererBoxEventArgs mevt = new CalendarRendererBoxEventArgs(e, new Rectangle(minuteLeft, unit.Bounds.Top, minuteWidth, unit.Bounds.Height), minutes, TextFormatFlags.Top | TextFormatFlags.Left);
+
+                        mevt.Font = minuteFont;
+
+                        OnDrawTimeScaleMinutes(mevt);
+                    }
                 }
             }
         }
@@ -1388,30 +1390,33 @@ namespace System.Windows.Forms.Calendar
         {
             CalendarDay day = e.Day;
 
-            CalendarRendererBoxEventArgs hevt = new CalendarRendererBoxEventArgs(e,
-                    day.HeaderBounds,
-                    day.Date.Day.ToString(),
-                    TextFormatFlags.VerticalCenter);
-            hevt.Font = new Font(Calendar.Font, FontStyle.Bold);
-
-            CalendarRendererBoxEventArgs devt = new CalendarRendererBoxEventArgs(e,
-                    day.HeaderBounds,
-                    day.Date.ToString("dddd"),
-                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-
-            OnDrawDayHeaderBackground(e);
-
-            if (Calendar.DaysMode == CalendarDaysMode.Short && (day.Index == 0 || day.Date.Day == 1))
+            using (Font headerFont = new Font(Calendar.Font, FontStyle.Bold))
             {
-                hevt.Text = day.Date.ToString("dd MMM");
-            }
+                CalendarRendererBoxEventArgs hevt = new CalendarRendererBoxEventArgs(e,
+                        day.HeaderBounds,
+                        day.Date.Day.ToString(),
+                        TextFormatFlags.VerticalCenter);
+                hevt.Font = headerFont;
 
-            OnDrawDayHeaderText(hevt);
+                CalendarRendererBoxEventArgs devt = new CalendarRendererBoxEventArgs(e,
+                        day.HeaderBounds,
+                        day.Date.ToString("dddd"),
+                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
 
-            if (devt.TextSize.Width < day.HeaderBounds.Width - hevt.TextSize.Width * 2
-                && e.Calendar.DaysMode == CalendarDaysMode.Expanded)
-            {
-                OnDrawDayHeaderText(devt);
+                OnDrawDayHeaderBackground(e);
+
+                if (Calendar.DaysMode == CalendarDaysMode.Short && (day.Index == 0 || day.Date.Day == 1))
+                {
+                    hevt.Text = day.Date.ToString("dd MMM");
+                }
+
+                OnDrawDayHeaderText(hevt);
+
+                if (devt.TextSize.Width < day.HeaderBounds.Width - hevt.TextSize.Width * 2
+                    && e.Calendar.DaysMode == CalendarDaysMode.Expanded)
+                {
+                    OnDrawDayHeaderText(devt);
+                }
             }
 
             
@@ -1698,8 +1703,13 @@ namespace System.Windows.Forms.Calendar
 
                 CalendarRendererBoxEventArgs evt = new CalendarRendererBoxEventArgs(e, r, e.Item.Text, TextFormatFlags.Left | TextFormatFlags.Top);
 
-                if (e.Item.ShowStartTime || e.Item.ShowEndTime) 
-                    evt.Font = new Font(evt.Font, FontStyle.Bold);
+                Font boldFont = null;
+
+                if (e.Item.ShowStartTime || e.Item.ShowEndTime)
+                {
+                    boldFont = new Font(evt.Font, FontStyle.Bold);
+                    evt.Font = boldFont;
+                }
 
                 if (e.Item.IsOnDayTop || Calendar.DaysMode == CalendarDaysMode.Short)
                     evt.Format |= TextFormatFlags.HorizontalCenter;
@@ -1758,7 +1768,14 @@ namespace System.Windows.Forms.Calendar
 
                 #endregion
 
-                OnDrawItemText(evt);
+                try
+                {
+                    OnDrawItemText(evt);
+                }
+                finally
+                {
+                    if (boldFont != null) boldFont.Dispose();
+                }
             }
         }
 
