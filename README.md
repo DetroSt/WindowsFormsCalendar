@@ -12,3 +12,11 @@ A calendar control based on https://www.codeproject.com/Articles/38699/A-Profess
 ```
 dotnet build System.Windows.Forms.Calendar.sln
 ```
+
+## Tests
+
+`System.Windows.Forms.Calendar.Tests` (MSTest) runs against both library builds (`net48` and `net10.0-windows`). It covers item layout, view range validation, weeks starting on any day, and keyboard handling.
+
+```
+dotnet test System.Windows.Forms.Calendar.sln
+```

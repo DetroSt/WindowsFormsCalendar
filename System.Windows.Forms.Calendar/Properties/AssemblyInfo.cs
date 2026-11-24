@@ -33,3 +33,6 @@ using System.Runtime.InteropServices;
 // by using the '*' as shown below:
 [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
+
+// Lets the test project use internal members (e.g. MonthViewMonth constructor, time unit item lists).
+[assembly: InternalsVisibleTo("System.Windows.Forms.Calendar.Tests")]

@@ -8,3 +8,6 @@
 /CalendarDemo/bin
 /System.Windows.Forms.Calendar/obj
 /System.Windows.Forms.Calendar/bin
+/System.Windows.Forms.Calendar.Tests/obj
+/System.Windows.Forms.Calendar.Tests/bin
+TestResults/
