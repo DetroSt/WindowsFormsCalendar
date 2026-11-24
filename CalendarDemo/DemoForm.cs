@@ -183,15 +183,33 @@ namespace CalendarDemo
 
             XmlSerializer xmls = new XmlSerializer(lst.GetType());
 
-            if (ItemsFile.Exists)
-            {
-                ItemsFile.Delete();
-            }
+            // Zapis do pliku tymczasowego, a potem podmiana: jeśli zapis się nie uda,
+            // dotychczasowy items.xml zostaje nienaruszony.
+            string target = ItemsFile.FullName;
+            string temp = target + ".tmp";
 
-            using (Stream s = ItemsFile.OpenWrite())
+            try
             {
-                xmls.Serialize(s, lst);
-                s.Close();
+                using (Stream s = File.Create(temp))
+                {
+                    xmls.Serialize(s, lst);
+                }
+
+                if (File.Exists(target))
+                {
+                    File.Replace(temp, target, null);
+                }
+                else
+                {
+                    File.Move(temp, target);
+                }
+            }
+            finally
+            {
+                if (File.Exists(temp))
+                {
+                    File.Delete(temp);
+                }
             }
         }
 
