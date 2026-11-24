@@ -701,6 +701,16 @@ namespace System.Windows.Forms.Calendar
                 //day.ContainedItems.Clear();
                 day.ContainedItems.Clear();
                 day.DayTop.PassingItems.Clear();
+
+                // Items removed from the calendar would otherwise stay referenced here
+                // and keep being counted as concurrent items.
+                if (day.TimeUnits != null)
+                {
+                    foreach (CalendarTimeScaleUnit unit in day.TimeUnits)
+                    {
+                        unit.PassingItems.Clear();
+                    }
+                }
             }
             if (Calendar.DaysMode == CalendarDaysMode.Expanded)
             {
@@ -776,12 +786,20 @@ namespace System.Windows.Forms.Calendar
 
                 if (tmatix.GetLength(1) > 0)
                 {
+                    List<CalendarItem> topItems = new List<CalendarItem>();
+
                     foreach (CalendarItem item in Calendar.Items)
                     {
                         if (!item.IsOnDayTop) continue;
 
                         item.TopsPassing.Sort(CompareTops);
+                        topItems.Add(item);
+                    }
 
+                    foreach (CalendarItem item in OrderForPlacement(topItems,
+                        it => it.TopsPassing[0].Day.Index,
+                        it => it.TopsPassing[it.TopsPassing.Count - 1].Day.Index))
+                    {
                         int topStart = item.TopsPassing[0].Day.Index;
                         int topEnd = item.TopsPassing[item.TopsPassing.Count - 1].Day.Index;
 
@@ -856,8 +874,14 @@ namespace System.Windows.Forms.Calendar
 
                         foreach (CalendarItem item in group)
                         {
-                            int x = 0;
                             item.UnitsPassing.Sort(CompareUnits);
+                        }
+
+                        foreach (CalendarItem item in OrderForPlacement(group,
+                            it => it.UnitsPassing[0].Index,
+                            it => it.UnitsPassing[it.UnitsPassing.Count - 1].Index))
+                        {
+                            int x = 0;
                             int unitStart = item.UnitsPassing[0].Index - startIndex;
                             int unitEnd = unitStart + item.UnitsPassing.Count - 1;
                             bool xFound = false;
@@ -998,14 +1022,14 @@ namespace System.Windows.Forms.Calendar
                 }
 
                 int[,] matix = new int[Calendar.Days.Length, maxItems];
-                int curIndex = 0;
-                foreach (CalendarItem item in Calendar.Items)
-                {
-                    CalendarDay dayStart = item.DayStart;
-                    CalendarDay dayEnd = item.DayEnd;
 
-                    PlaceInMatrix(ref matix, curIndex + 1, dayStart.Index, dayEnd.Index);
-                    curIndex++;
+                // The matrix id is the item's position in Calendar.Items + 1,
+                // which is what the week loop below searches for.
+                foreach (CalendarItem item in OrderForPlacement(Calendar.Items,
+                    it => it.DayStart.Index,
+                    it => it.DayEnd.Index))
+                {
+                    PlaceInMatrix(ref matix, Calendar.Items.IndexOf(item) + 1, item.DayStart.Index, item.DayEnd.Index);
                 }
 
 
@@ -1079,7 +1103,9 @@ namespace System.Windows.Forms.Calendar
             int y = 0;
             bool yFound = false;
 
-            while (!yFound && y < m.GetLength(1)) //HACK: && y < m.GetLength(1) //This is Because of some bug, possible item not showing
+            // Callers pass items ordered by OrderForPlacement, so a free row always exists;
+            // the bounds checks below are only a safety net.
+            while (!yFound && y < m.GetLength(1))
             {
                 yFound = true;
 
@@ -1097,13 +1123,47 @@ namespace System.Windows.Forms.Calendar
             }
 
 
-            if (y < m.GetLength(1)) //HACK: This if is because of same bug
+            if (y < m.GetLength(1))
             {
                 for (int i = startX; i <= endX; i++)
                 {
                     m[i, y] = index;
-                } 
+                }
             }
+        }
+
+        /// <summary>
+        /// Orders items for first-fit placement in a layout matrix: earliest start first,
+        /// longer items first when starts are equal, original order otherwise.
+        /// </summary>
+        /// <remarks>
+        /// With this order the first-fit placement never needs more rows (or columns) than the
+        /// maximum number of items overlapping at one point, which is the size of the matrices
+        /// built by <see cref="PerformItemsLayout"/>. In any other order it may need more,
+        /// and items would not fit.
+        /// </remarks>
+        private static List<T> OrderForPlacement<T>(IList<T> items, Func<T, int> start, Func<T, int> end)
+        {
+            int[] order = new int[items.Count];
+
+            for (int i = 0; i < order.Length; i++) order[i] = i;
+
+            Array.Sort(order, (a, b) =>
+            {
+                int c = start(items[a]).CompareTo(start(items[b]));
+                if (c != 0) return c;
+
+                c = end(items[b]).CompareTo(end(items[a]));
+                if (c != 0) return c;
+
+                return a.CompareTo(b);
+            });
+
+            List<T> result = new List<T>(order.Length);
+
+            foreach (int i in order) result.Add(items[i]);
+
+            return result;
         }
 
         #endregion
