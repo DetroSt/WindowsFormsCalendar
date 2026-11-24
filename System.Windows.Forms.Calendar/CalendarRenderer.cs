@@ -691,7 +691,19 @@ namespace System.Windows.Forms.Calendar
         /// </summary>
         public void PerformItemsLayout()
         {
-            if (Calendar.Days == null || Calendar.Items.Count == 0) return;
+            if (Calendar.Days == null) return;
+
+            if (Calendar.Items.Count == 0)
+            {
+                // Nothing to place, but a day top enlarged for items removed meanwhile must shrink back.
+                if (Calendar.DaysMode == CalendarDaysMode.Expanded && DayTopHeight != DayTopMinHeight)
+                {
+                    DayTopHeight = DayTopMinHeight;
+                    PerformLayout(false);
+                }
+
+                return;
+            }
             bool alldaychanged = false;
             int offset = Math.Abs(Calendar.TimeUnitsOffset);
             List<CalendarItem> itemsOnScene = new List<CalendarItem>();
@@ -728,6 +740,10 @@ namespace System.Windows.Forms.Calendar
                     if (item.IsOnDayTop)
                     {
                         #region Among day tops
+
+                        // An item entirely outside the view would otherwise get the first and last
+                        // day of the view below and be drawn across the whole day top.
+                        if (!item.IsOnViewDateRange) continue;
 
                         CalendarDay dayStart = item.DayStart;
                         CalendarDay dayEnd = item.DayEnd;
@@ -784,13 +800,24 @@ namespace System.Windows.Forms.Calendar
 
                 int[,] tmatix = new int[Calendar.Days.Length, maxItemsOnDayTop];
 
+                // Without any day top item the height goes back to the minimum
+                // (previously it stayed at the size needed by items removed meanwhile).
+                int dayTopsHeight = tmatix.GetLength(1) * StandardItemHeight + DayTopMinHeight;
+
+                if (DayTopHeight != dayTopsHeight)
+                {
+                    DayTopHeight = dayTopsHeight;
+                    alldaychanged = true;
+                }
+
                 if (tmatix.GetLength(1) > 0)
                 {
                     List<CalendarItem> topItems = new List<CalendarItem>();
 
                     foreach (CalendarItem item in Calendar.Items)
                     {
-                        if (!item.IsOnDayTop) continue;
+                        // TopsPassing is empty for items skipped above (outside the view).
+                        if (!item.IsOnDayTop || item.TopsPassing.Count == 0) continue;
 
                         item.TopsPassing.Sort(CompareTops);
                         topItems.Add(item);
@@ -806,19 +833,11 @@ namespace System.Windows.Forms.Calendar
                         PlaceInMatrix(ref tmatix, Calendar.Items.IndexOf(item) + 1, topStart, topEnd);
                     }
 
-                    int dayTopsHeight = tmatix.GetLength(1) * StandardItemHeight + DayTopMinHeight;
-
-                    if (DayTopHeight != dayTopsHeight)
-                    {
-                        DayTopHeight = dayTopsHeight;
-                        alldaychanged = true;
-                    }
-
                     int itemHeight = StandardItemHeight;//Convert.ToInt32(Math.Floor(Convert.ToSingle(DayTopHeight) / Convert.ToSingle(tmatix.GetLength(1))));
 
                     foreach (CalendarItem item in Calendar.Items)
                     {
-                        if (!item.IsOnDayTop) continue;
+                        if (!item.IsOnDayTop || item.TopsPassing.Count == 0) continue;
 
                         int index = Calendar.Items.IndexOf(item);
 
@@ -1007,12 +1026,18 @@ namespace System.Windows.Forms.Calendar
                 }
 
                 int maxItems = 0;
+                List<CalendarItem> itemsInView = new List<CalendarItem>();
 
                 foreach (CalendarItem item in Calendar.Items)
                 {
                     CalendarDay dayStart = item.DayStart;
                     CalendarDay dayEnd = item.DayEnd;
                     item.ClearBounds();
+
+                    // Items outside the view have no days here (previously a NullReferenceException).
+                    if (dayStart == null || dayEnd == null) continue;
+
+                    itemsInView.Add(item);
 
                     for (int i = dayStart.Index; i <= dayEnd.Index; i++)
                     {
@@ -1025,7 +1050,7 @@ namespace System.Windows.Forms.Calendar
 
                 // The matrix id is the item's position in Calendar.Items + 1,
                 // which is what the week loop below searches for.
-                foreach (CalendarItem item in OrderForPlacement(Calendar.Items,
+                foreach (CalendarItem item in OrderForPlacement(itemsInView,
                     it => it.DayStart.Index,
                     it => it.DayEnd.Index))
                 {
@@ -1080,8 +1105,11 @@ namespace System.Windows.Forms.Calendar
                     }
                 }
 
+                // Only items that got a position; gapping an empty rectangle would turn it into
+                // a rectangle with negative width.
                 foreach (CalendarItem item in Calendar.Items)
-                    item.FirstAndLastRectangleGapping();
+                    if (!item.Bounds.IsEmpty)
+                        item.FirstAndLastRectangleGapping();
 
                 Calendar.Items.Reverse();
 
@@ -1292,8 +1320,13 @@ namespace System.Windows.Forms.Calendar
         }
 
         /// <summary>
-        /// Recursive method that collects items intersecting on time, to graphically represent-them on the layout
+        /// Recursive method that collects items sharing time units, to graphically represent them on the layout.
         /// </summary>
+        /// <remarks>
+        /// Items are drawn over whole time units, so two items in the same unit overlap on screen even when
+        /// their times don't (e.g. 10:00-10:10 and 10:15-10:25 with a 30 minute scale). Grouping them by exact
+        /// time put them in separate groups, each drawn at full width, and the later one covered the earlier.
+        /// </remarks>
         /// <param name="calendarItem"></param>
         /// <param name="items"></param>
         /// <param name="grouped"></param>
@@ -1304,14 +1337,27 @@ namespace System.Windows.Forms.Calendar
 
             foreach (CalendarItem item in items)
             {
-                if (!grouped.Contains(item) &&
-                    calendarItem.IntersectsWith(item.StartDate.TimeOfDay, item.EndDate.TimeOfDay))
+                if (!grouped.Contains(item) && SharesTimeUnit(calendarItem, item))
                 {
                     grouped.Add(item);
 
                     CollectIntersectingGroup(item, items, grouped);
                 }
             }
+        }
+
+        /// <summary>
+        /// Returns true if both items pass over at least one common time unit.
+        /// </summary>
+        private static bool SharesTimeUnit(CalendarItem a, CalendarItem b)
+        {
+            foreach (CalendarTimeScaleUnit unit in a.UnitsPassing)
+            {
+                if (b.UnitsPassing.Contains(unit))
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -1708,10 +1754,9 @@ namespace System.Windows.Forms.Calendar
 
         public virtual void OnDrawItemPattern(CalendarRendererItemBoundsEventArgs e)
         {
-            foreach (Rectangle bounds in e.Item.GetAllBounds())
-            {
-                ItemPattern(e, bounds, e.Item.PatternColor);
-            }
+            // OnDrawItem calls this once per rectangle of the item, so draw only that rectangle
+            // (looping over all of them drew every rectangle's pattern once per rectangle).
+            ItemPattern(e, e.Bounds, e.Item.PatternColor);
         }
 
         /// <summary>
@@ -1726,6 +1771,10 @@ namespace System.Windows.Forms.Calendar
 
             for (int i = 0; i < rectangles.Count; i++)
             {
+                // OnDrawItem calls this once per rectangle of the item (e.Bounds); draw only that one.
+                // The loop stays to know whether it is the first / last rectangle (start / end time).
+                if (rectangles[i] != e.Bounds) continue;
+
                 Rectangle bounds = rectangles[i];
                 Rectangle imageBounds = Rectangle.Empty;
                 Rectangle rStartTime = new Rectangle();
@@ -1785,7 +1834,9 @@ namespace System.Windows.Forms.Calendar
 
                 if (e.Item.Image != null)
                 {
-                    Rectangle tBounds = e.Item.Bounds;
+                    // Position image and text within this rectangle; e.Item.Bounds is only the first
+                    // one, which put every rectangle's text into the first week of a multi-week item.
+                    Rectangle tBounds = bounds;
                     imageBounds.Size = e.Item.Image.Size;
 
                     switch (e.Item.ImageAlign)
@@ -1814,11 +1865,11 @@ namespace System.Windows.Forms.Calendar
                     {
                         case CalendarItemImageAlign.North:
                         case CalendarItemImageAlign.South:
-                            imageBounds.X = e.Item.Bounds.X + ( ( e.Item.Bounds.Width - imageBounds.Width ) / 2);
+                            imageBounds.X = bounds.X + ((bounds.Width - imageBounds.Width) / 2);
                             break;
                         case CalendarItemImageAlign.East:
                         case CalendarItemImageAlign.West:
-                            imageBounds.Y = e.Item.Bounds.Y + ((e.Item.Bounds.Height - imageBounds.Height) / 2);
+                            imageBounds.Y = bounds.Y + ((bounds.Height - imageBounds.Height) / 2);
                             break;
                     }
 
