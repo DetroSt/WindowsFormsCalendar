@@ -15,8 +15,30 @@ dotnet build System.Windows.Forms.Calendar.sln
 
 ## Tests
 
-`System.Windows.Forms.Calendar.Tests` (MSTest) runs against both library builds (`net48` and `net10.0-windows`). It covers item layout, view range validation, weeks starting on any day, and keyboard handling.
+`System.Windows.Forms.Calendar.Tests` (MSTest) runs against both library builds (`net48` and `net10.0-windows`). It covers item layout and drawing, the item collection, view range and view limits, weeks starting on any day, week numbers, keyboard and mouse handling (dragging items, selecting days), scrolling and time scales, edit mode, highlighted work time, renderers, and the `MonthView` control.
 
 ```
 dotnet test System.Windows.Forms.Calendar.sln
 ```
+
+## Usage notes
+
+- **Changing an item's dates from code** (`StartDate`, `EndDate`) does not move it on screen by itself. Call `calendar.Renderer.PerformItemsLayout()` and `calendar.Invalidate()` afterwards. Adding, removing or replacing items through `calendar.Items` (including `IList` / `ICollection` access) updates the layout automatically.
+- **Time scale** labels follow the current culture: 00-23 for cultures with a 24-hour clock, 12, 01-11 with AM/PM otherwise. The time shown on items is set separately by `ItemsTimeFormat` (default `hh:mm tt`).
+- **Week headers** in the month view use `WeekNumberFormat` (e.g. `"Tydz. {0}"`); without it they show `KW {0}` for German and `Week {0}` otherwise. Week numbers follow the current culture's rules.
+- **Selection**: `SelectionStart` / `SelectionEnd` return the selected range and select the time units (or, in the month view, the days) containing the given dates.
+
+### Behaviour changes in this fork
+
+Some setters now validate their values and throw instead of leaving the control in a broken state:
+
+| Member | Throws |
+|---|---|
+| `MaximumViewDays` | `ArgumentOutOfRangeException` for values that are not a positive multiple of 7, or smaller than the current view |
+| `MaximumFullDays` | `ArgumentOutOfRangeException` for values below 1 |
+| `ViewStart`, `ViewEnd`, `SetViewRange` | `ArgumentOutOfRangeException` for ranges shorter than 1 day or longer than `MaximumViewDays` (the view is left unchanged) |
+| `Renderer` | `ArgumentNullException` for `null` |
+| `SelectionStart`, `SelectionEnd` | `ArgumentOutOfRangeException` for dates outside the current view |
+| `WeekNumberFormat` | `ArgumentException` for an invalid composite format |
+| `MonthView.DayNamesLength` | `ArgumentOutOfRangeException` for negative values |
+| `CalendarColorTable.FromHex` | `ArgumentNullException` for `null`, `FormatException` for anything but 6 hex digits (optionally prefixed with `#`) |

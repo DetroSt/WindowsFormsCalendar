@@ -73,7 +73,7 @@ namespace System.Windows.Forms.Calendar
         {
             Bounds = bounds;
             Text = text;
-            TextColor = TextColor;
+            TextColor = textColor;
             Format |= flags;
         }
 
@@ -82,7 +82,7 @@ namespace System.Windows.Forms.Calendar
         {
             Bounds = bounds;
             Text = text;
-            TextColor = TextColor;
+            TextColor = textColor;
             BackgroundColor = backgroundColor;
         }
 

@@ -140,4 +140,39 @@ namespace System.Windows.Forms.Calendar.Tests
             Assert.AreEqual(SystemFonts.CaptionFont.Size, calendar.Font.Size);
         }
     }
+
+    /// <summary>
+    /// Every <see cref="CalendarRendererBoxEventArgs"/> constructor keeps the values it is given.
+    /// </summary>
+    [STATestClass]
+    public class BoxEventArgsTests : CalendarTestBase
+    {
+        private CalendarRendererEventArgs Original() => new CalendarRendererEventArgs(Cal, null, Rectangle.Empty);
+
+        [TestMethod]
+        public void ConstructorWithTextColorAndFlags_KeepsTextColor()
+        {
+            var e = new CalendarRendererBoxEventArgs(Original(), new Rectangle(1, 2, 3, 4), "x", Color.Red, TextFormatFlags.Right);
+
+            Assert.AreEqual(Color.Red, e.TextColor);
+            Assert.IsTrue((e.Format & TextFormatFlags.Right) == TextFormatFlags.Right);
+        }
+
+        [TestMethod]
+        public void ConstructorWithTextAndBackgroundColor_KeepsBothColors()
+        {
+            var e = new CalendarRendererBoxEventArgs(Original(), new Rectangle(1, 2, 3, 4), "x", Color.Red, Color.Blue);
+
+            Assert.AreEqual(Color.Red, e.TextColor);
+            Assert.AreEqual(Color.Blue, e.BackgroundColor);
+        }
+
+        [TestMethod]
+        public void ConstructorWithTextColor_KeepsTextColor()
+        {
+            var e = new CalendarRendererBoxEventArgs(Original(), new Rectangle(1, 2, 3, 4), "x", Color.Red);
+
+            Assert.AreEqual(Color.Red, e.TextColor);
+        }
+    }
 }
