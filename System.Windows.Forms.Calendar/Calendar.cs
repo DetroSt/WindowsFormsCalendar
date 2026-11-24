@@ -207,6 +207,8 @@ namespace System.Windows.Forms.Calendar
         private string _weekNumberFormat;
         private bool _itemsLayoutPending;
         private CalendarHolidays _holidays;
+        private ToolTip _holidayToolTip;
+        private CalendarDay _holidayToolTipDay;
         private int _maximumFullDays;
         private int _maximumViewDays;
         private CalendarRenderer _renderer;
@@ -473,6 +475,48 @@ namespace System.Windows.Forms.Calendar
         {
             UpdateHighlights();
             Invalidate();
+
+            // The tooltip of the day under the mouse is refreshed on the next mouse move.
+            _holidayToolTipDay = null;
+        }
+
+        /// <summary>
+        /// Shows the full holiday name as a tooltip over a day header; in narrow columns the name
+        /// drawn in the header is cut with an ellipsis.
+        /// </summary>
+        private void UpdateHolidayToolTip(Point location)
+        {
+            CalendarDay day = null;
+
+            if (Days != null)
+            {
+                foreach (CalendarDay d in Days)
+                {
+                    if (d.HeaderBounds.Contains(location)) { day = d; break; }
+                }
+            }
+
+            if (day == _holidayToolTipDay) return;
+            _holidayToolTipDay = day;
+
+            string name = day != null ? day.HolidayName : null;
+
+            if (string.IsNullOrEmpty(name))
+            {
+                if (_holidayToolTip != null) _holidayToolTip.SetToolTip(this, null);
+                return;
+            }
+
+            if (_holidayToolTip == null) _holidayToolTip = new ToolTip();
+            _holidayToolTip.SetToolTip(this, name);
+        }
+
+        /// <summary>
+        /// Gets the text of the holiday tooltip currently set for the control, or <c>null</c>.
+        /// </summary>
+        internal string HolidayToolTipText
+        {
+            get { return _holidayToolTip == null ? null : _holidayToolTip.GetToolTip(this); }
         }
 
         /// <summary>
@@ -2178,6 +2222,8 @@ namespace System.Windows.Forms.Calendar
         {
             base.OnMouseMove(e);
 
+            UpdateHolidayToolTip(e.Location);
+
             ICalendarSelectableElement hitted = HitTest(e.Location, State != CalendarState.Idle);
             CalendarItem hittedItem = hitted as CalendarItem;
             CalendarDayTop hittedTop = hitted as CalendarDayTop;
@@ -2391,9 +2437,10 @@ namespace System.Windows.Forms.Calendar
         protected override void Dispose(bool disposing)
         {
             // A shared holiday set would otherwise keep this control alive through its Changed event.
-            if (disposing && _holidays != null)
+            if (disposing)
             {
-                _holidays.Changed -= Holidays_Changed;
+                if (_holidays != null) _holidays.Changed -= Holidays_Changed;
+                if (_holidayToolTip != null) _holidayToolTip.Dispose();
             }
 
             base.Dispose(disposing);

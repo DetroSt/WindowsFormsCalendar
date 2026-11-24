@@ -602,6 +602,9 @@ namespace System.Windows.Forms.Calendar
         private void Holidays_Changed(object sender, EventArgs e)
         {
             Invalidate();
+
+            // The tooltip of the day under the mouse is refreshed on the next mouse move.
+            _holidayToolTipDay = null;
         }
 
         /// <summary>

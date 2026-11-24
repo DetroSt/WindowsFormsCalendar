@@ -141,6 +141,35 @@ namespace System.Windows.Forms.Calendar
         }
 
         /// <summary>
+        /// Gets the holidays from <paramref name="from"/> to <paramref name="to"/> (both days included),
+        /// one entry per day and holiday, ordered by date: yearly holidays appear once for every year
+        /// in the range, and a holiday lasting several days once for each of its days.
+        /// </summary>
+        /// <exception cref="ArgumentException"><paramref name="to"/> is before <paramref name="from"/>.</exception>
+        public List<CalendarHoliday> GetHolidays(DateTime from, DateTime to)
+        {
+            from = from.Date;
+            to = to.Date;
+
+            if (to < from) throw new ArgumentException("The end of the range is before its start.", "to");
+
+            List<CalendarHoliday> result = new List<CalendarHoliday>();
+
+            for (DateTime day = from; day <= to; day = day.AddDays(1))
+            {
+                foreach (Entry entry in _entries)
+                {
+                    if (entry.Contains(day))
+                        result.Add(new CalendarHoliday(day, entry.Name));
+                }
+
+                if (day == DateTime.MaxValue.Date) break;
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Gets the name of the holiday on the specified day (names of several holidays on the same day
         /// are joined with ", "), or <c>null</c> if the day is not a holiday.
         /// </summary>
@@ -298,6 +327,10 @@ namespace System.Windows.Forms.Calendar
                 while ((line = reader.ReadLine()) != null)
                 {
                     lineNumber++;
+
+                    // Text read without encoding detection (e.g. a string) may still start with the UTF-8 BOM.
+                    if (lineNumber == 1 && line.Length > 0 && line[0] == (char)0xFEFF)
+                        line = line.Substring(1);
 
                     if (line.Length > 0 && (line[0] == ' ' || line[0] == '\t'))
                     {

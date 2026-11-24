@@ -496,4 +496,93 @@ namespace System.Windows.Forms.Calendar.Tests
             Assert.IsTrue(repainted);
         }
     }
+
+    /// <summary>
+    /// Listing holidays, reading text with a BOM, and the holiday tooltip of <see cref="Calendar"/>.
+    /// </summary>
+    [STATestClass]
+    public class HolidayImprovementTests : CalendarTestBase
+    {
+        [TestMethod]
+        public void TextReaderWithBom_IsRead()
+        {
+            CalendarHolidays h = CalendarHolidays.LoadICalendar(new StringReader(
+                (char)0xFEFF + "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261101\r\nSUMMARY:Wszystkich Świętych\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"));
+
+            Assert.AreEqual("Wszystkich Świętych", h.GetName(new DateTime(2026, 11, 1)));
+        }
+
+        [TestMethod]
+        public void GetHolidays_ListsEveryDayInRangeInOrder()
+        {
+            var h = new CalendarHolidays();
+            h.AddYearly(12, 25, "Boże Narodzenie");
+            h.Add(new DateTime(2026, 12, 31), "Sylwester (wolne)");
+            h.AddICalendar(new StringReader(
+                "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261224\r\nDTEND;VALUE=DATE:20261227\r\nSUMMARY:Święta\r\nEND:VEVENT\r\nEND:VCALENDAR"));
+
+            List<CalendarHoliday> list = h.GetHolidays(new DateTime(2026, 12, 20), new DateTime(2027, 12, 25, 18, 0, 0));
+            var text = new List<string>();
+            foreach (CalendarHoliday holiday in list) text.Add($"{holiday.Date:yyyy-MM-dd} {holiday.Name}");
+
+            CollectionAssert.AreEqual(new[]
+            {
+                "2026-12-24 Święta",
+                "2026-12-25 Boże Narodzenie",
+                "2026-12-25 Święta",
+                "2026-12-26 Święta",
+                "2026-12-31 Sylwester (wolne)",
+                "2027-12-25 Boże Narodzenie",
+            }, text, string.Join(" | ", text));
+        }
+
+        [TestMethod]
+        public void GetHolidays_EndBeforeStart_Throws()
+        {
+            Assert.ThrowsExactly<ArgumentException>(() => new CalendarHolidays().GetHolidays(new DateTime(2026, 2, 1), new DateTime(2026, 1, 1)));
+        }
+
+        [TestMethod]
+        [DataRow(6, DisplayName = "Week view")]
+        [DataRow(27, DisplayName = "Month view")]
+        public void MouseOverHolidayHeader_ShowsFullNameAsToolTip(int lastDay)
+        {
+            Cal.SetViewRange(Monday, Monday.AddDays(lastDay));
+            var holidays = new CalendarHolidays();
+            DateTime wednesday = Monday.AddDays(2);
+            holidays.Add(wednesday, "Bardzo długa nazwa święta, która nie mieści się w nagłówku");
+            Cal.Holidays = holidays;
+
+            Rectangle header = Cal.FindDay(wednesday).HeaderBounds;
+            Rectangle otherHeader = Cal.FindDay(Monday).HeaderBounds;
+            Rectangle body = Cal.FindDay(wednesday).Bounds;
+
+            Cal.MouseMoveTo(new Point(header.Left + header.Width / 2, header.Top + header.Height / 2));
+            Assert.AreEqual("Bardzo długa nazwa święta, która nie mieści się w nagłówku", Cal.HolidayToolTipText);
+
+            Cal.MouseMoveTo(new Point(otherHeader.Left + otherHeader.Width / 2, otherHeader.Top + otherHeader.Height / 2));
+            Assert.IsTrue(string.IsNullOrEmpty(Cal.HolidayToolTipText), "Not a holiday.");
+
+            Cal.MouseMoveTo(new Point(body.Left + body.Width / 2, body.Bottom - 5));
+            Assert.IsTrue(string.IsNullOrEmpty(Cal.HolidayToolTipText), "Only the header shows the tooltip.");
+        }
+
+        [TestMethod]
+        public void ToolTip_FollowsChangedHolidays()
+        {
+            Cal.SetViewRange(Monday, Monday.AddDays(6));
+            var holidays = new CalendarHolidays();
+            Cal.Holidays = holidays;
+            Rectangle header = Cal.FindDay(Monday).HeaderBounds;
+            Point p = new Point(header.Left + header.Width / 2, header.Top + header.Height / 2);
+
+            Cal.MouseMoveTo(p);
+            Assert.IsTrue(string.IsNullOrEmpty(Cal.HolidayToolTipText));
+
+            holidays.Add(Monday, "Nowe");
+            Cal.MouseMoveTo(p);
+
+            Assert.AreEqual("Nowe", Cal.HolidayToolTipText);
+        }
+    }
 }

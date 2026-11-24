@@ -30,7 +30,7 @@ dotnet test System.Windows.Forms.Calendar.sln
 
 ### Holidays
 
-Days off can be shown with a different background in `Calendar` (all views) and `MonthView`. In `Calendar` the holiday name is shown in the day header and work time (`HighlightRanges`) is not highlighted on holidays; in `MonthView` the name is shown as a tooltip.
+Days off can be shown with a different background in `Calendar` (all views) and `MonthView`. In `Calendar` the holiday name is shown in the day header (the full name also as a tooltip over the header) and work time (`HighlightRanges`) is not highlighted on holidays; in `MonthView` the name is shown as a tooltip. `GetHolidays(from, to)` lists the holidays of a date range, one entry per day.
 
 ```csharp
 CalendarHolidays holidays = CalendarHolidays.LoadICalendar("holidays.ics");
