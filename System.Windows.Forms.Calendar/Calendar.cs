@@ -1369,7 +1369,7 @@ namespace System.Windows.Forms.Calendar
             if (span.Days > MaximumFullDays)
             {
                 SetDaysMode(CalendarDaysMode.Short);
-                preDays = (new int[] { 0, 1, 2, 3, 4, 5, 6 })[(int)ViewStart.DayOfWeek] - (int)FirstDayOfWeek;
+                preDays = ((int)ViewStart.DayOfWeek - (int)FirstDayOfWeek + 7) % 7; // days back to the week start, always 0..6
                 span = span.Add(new TimeSpan(preDays, 0, 0, 0));
 
                 while (span.Days % 7 != 0)
@@ -1379,6 +1379,13 @@ namespace System.Windows.Forms.Calendar
             {
                 SetDaysMode(CalendarDaysMode.Expanded);
             }
+
+            // The current selection refers to time units / days of the view being replaced.
+            // Keeping it would mix elements of two views (e.g. Shift+arrow would then loop forever
+            // in UpdateSelectionElements), so drop it.
+            ClearSelectedComponents();
+            _selectedElementStart = null;
+            _selectedElementEnd = null;
 
             _days = new CalendarDay[span.Days];
 
@@ -1453,7 +1460,8 @@ namespace System.Windows.Forms.Calendar
             if (unitStart != null && unitEnd != null)
             {
                 bool reached = false;
-                for (int i = unitStart.Day.Index; !reached; i++)
+                // i < Days.Length: stop at the last day even if unitEnd was never reached.
+                for (int i = unitStart.Day.Index; !reached && i < Days.Length; i++)
                 {
                     for (int j = (i == unitStart.Day.Index ? unitStart.Index : 0); i < Days.Length && j < Days[i].TimeUnits.Length; j++)
                     {
@@ -1650,7 +1658,7 @@ namespace System.Windows.Forms.Calendar
                 if (AllowNew)
                     CreateItemOnSelection(string.Empty, true);
             }
-            else if (e.KeyCode == Keys.Down)
+            else if (e.KeyCode == Keys.Down && SelectedElementStart != null && SelectedElementEnd != null)
             {
                 if (e.Shift)
                     sStart = SelectedElementStart;
@@ -1699,7 +1707,9 @@ namespace System.Windows.Forms.Calendar
         {
             base.OnKeyPress(e);
 
-            if(AllowNew)
+            // Only printable characters start a new item; Enter, Escape, Backspace, Ctrl+key
+            // and other control characters would otherwise create empty items.
+            if (AllowNew && !char.IsControl(e.KeyChar))
                 CreateItemOnSelection(e.KeyChar.ToString(), true);
         }
 
@@ -1787,8 +1797,15 @@ namespace System.Windows.Forms.Calendar
 
                         if (shiftPressed)
                         {
-                            if (hitted != null && SelectedElementEnd == null && !SelectedElementEnd.Equals(hitted))
-                                SelectedElementEnd = hitted;
+                            // Shift+click extends the current selection to the clicked element,
+                            // or starts a new one when nothing is selected yet.
+                            if (hitted != null)
+                            {
+                                if (SelectedElementStart == null)
+                                    SetSelectionRange(hitted, hitted);
+                                else if (SelectedElementEnd == null || !SelectedElementEnd.Equals(hitted))
+                                    SelectedElementEnd = hitted;
+                            }
                         }
                         else
                         {
@@ -1843,7 +1860,7 @@ namespace System.Windows.Forms.Calendar
                         if (!Cursor.Equals(should)) Cursor = should;
                         break;
                     case CalendarState.DraggingTimeSelection:
-                        if (SelectedElementStart != null && !SelectedElementEnd.Equals(hitted))
+                        if (SelectedElementStart != null && (SelectedElementEnd == null || !SelectedElementEnd.Equals(hitted)))
                             SelectedElementEnd = hitted;
                         break;
                     //case CalendarState.DraggingItem:
@@ -1934,7 +1951,7 @@ namespace System.Windows.Forms.Calendar
                     
                     break;
                 case CalendarState.DraggingTimeSelection:
-                    if (SelectedElementStart == null || (hitted != null && !SelectedElementEnd.Equals(hitted)))
+                    if (SelectedElementStart == null || (hitted != null && (SelectedElementEnd == null || !SelectedElementEnd.Equals(hitted))))
                     {
                         SelectedElementEnd = hitted;
                     }

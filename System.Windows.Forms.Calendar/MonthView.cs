@@ -577,7 +577,7 @@ namespace System.Windows.Forms.Calendar
         /// <param name="hit"></param>
         private void SelectWeek(DateTime hit)
         {
-            int preDays = (new int[] { 0, 1, 2, 3, 4, 5, 6 })[(int)hit.DayOfWeek] - (int)FirstDayOfWeek;
+            int preDays = ((int)hit.DayOfWeek - (int)FirstDayOfWeek + 7) % 7; // days back to the week start, always 0..6
 
             _selectionStart = hit.AddDays(-preDays);
             SelectionEnd = SelectionStart.AddDays(6);
@@ -589,7 +589,7 @@ namespace System.Windows.Forms.Calendar
         /// <param name="hit"></param>
         private void SelectWorkWeek(DateTime hit)
         {
-            int preDays = (new int[] { 0, 1, 2, 3, 4, 5, 6 })[(int)hit.DayOfWeek] - (int)WorkWeekStart;
+            int preDays = ((int)hit.DayOfWeek - (int)WorkWeekStart + 7) % 7; // days back to the week start, always 0..6
 
             _selectionStart = hit.AddDays(-preDays);
             SelectionEnd = SelectionStart.AddDays(Math.Abs(WorkWeekStart - WorkWeekEnd));

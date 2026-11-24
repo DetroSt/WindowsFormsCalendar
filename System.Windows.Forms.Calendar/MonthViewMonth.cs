@@ -34,7 +34,7 @@ namespace System.Windows.Forms.Calendar
             _monthview = monthView;
             _date = date;
 
-            int preDays = (new int[] { 0, 1, 2, 3, 4, 5, 6 })[(int)date.DayOfWeek] - (int)MonthView.FirstDayOfWeek;
+            int preDays = ((int)date.DayOfWeek - (int)MonthView.FirstDayOfWeek + 7) % 7; // days back to the week start, always 0..6
             days = new MonthViewDay[6 * 7];
             DateTime curDate = date.AddDays(-preDays);
             DayHeaders = new string[7];
