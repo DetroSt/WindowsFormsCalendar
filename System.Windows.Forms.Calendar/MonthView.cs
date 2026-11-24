@@ -107,6 +107,9 @@ namespace System.Windows.Forms.Calendar
             SetStyle(ControlStyles.Opaque, true);
             DoubleBuffered = true;
 
+            // The background used to be always painted with SystemColors.Window; keep that look by default.
+            BackColor = SystemColors.Window;
+
             _dayNamesFormat = "ddd";
             _monthTitleFormat = "MMMM yyyy";
             _selectionMode = MonthViewSelection.Manual;
@@ -137,6 +140,16 @@ namespace System.Windows.Forms.Calendar
         #endregion
 
         #region Props
+
+        /// <summary>
+        /// Gets or sets the background color of the control. The default is <see cref="SystemColors.Window"/>.
+        /// </summary>
+        [DefaultValue(typeof(Color), "Window")]
+        public override Color BackColor
+        {
+            get { return base.BackColor; }
+            set { base.BackColor = value; }
+        }
 
         /// <summary>
         /// Gets the size of days rectangles
@@ -337,14 +350,19 @@ namespace System.Windows.Forms.Calendar
         }
 
         /// <summary>
-        /// Gets or sets the start of selection
+        /// Gets or sets the start of selection. The time of day is dropped (the selection is made of
+        /// whole days), like <see cref="SelectionEnd"/> is moved to the end of its day.
         /// </summary>
         [DesignerSerializationVisibility( DesignerSerializationVisibility.Hidden)]
         public DateTime SelectionStart
         {
             get { return _selectionStart; }
-            set 
+            set
             {
+                // With the time kept, the first day was not shown as selected (a day is selected
+                // when its date, at midnight, is not before SelectionStart).
+                value = value.Date;
+
                 if (MaxSelectionCount > 0)
                 {
                     if (Math.Abs(value.Subtract(SelectionEnd).TotalDays) >= MaxSelectionCount)
@@ -462,6 +480,10 @@ namespace System.Windows.Forms.Calendar
         }
 
 
+        /// <summary>
+        /// Gets or sets the text color of days that are not selected and not grayed.
+        /// (Despite the name; the name is kept for compatibility with existing designer code.)
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color DaySelectedColor
         {
@@ -937,7 +959,7 @@ namespace System.Windows.Forms.Calendar
         {
             base.OnPaint(e);
 
-            e.Graphics.Clear(SystemColors.Window);
+            e.Graphics.Clear(BackColor);
 
             for (int i = 0; i < Months.Length; i++)
             {
@@ -982,7 +1004,7 @@ namespace System.Windows.Forms.Calendar
 
                         MonthViewBoxEventArgs evtDay = new MonthViewBoxEventArgs(e.Graphics, day.Bounds, day.Date.Day.ToString(),
                             StringAlignment.Far,
-                            day.Grayed ? DayGrayedText : (day.Selected ? DaySelectedTextColor : ForeColor),
+                            day.Grayed ? DayGrayedText : (day.Selected ? DaySelectedTextColor : DaySelectedColor),
                             day.Selected ? DaySelectedBackgroundColor : DayBackgroundColor);
 
                         if (day.Date.Equals(DateTime.Now.Date))
@@ -1029,6 +1051,9 @@ namespace System.Windows.Forms.Calendar
 
         protected override void OnResize(EventArgs e)
         {
+            // Raises the Resize event.
+            base.OnResize(e);
+
             UpdateMonths();
             Invalidate();
         }
