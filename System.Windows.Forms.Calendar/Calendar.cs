@@ -207,8 +207,6 @@ namespace System.Windows.Forms.Calendar
         private int _maximumFullDays;
         private int _maximumViewDays;
         private CalendarRenderer _renderer;
-        private DateTime _selEnd;
-        private DateTime _selStart;
         private CalendarState _state;
         private CalendarTimeScale _timeScale;
         private int _timeUnitsOffset;
@@ -432,7 +430,7 @@ namespace System.Windows.Forms.Calendar
         public string ItemsDateFormat
         {
             get { return _itemsDateFormat; }
-            set { _itemsDateFormat = value; }
+            set { _itemsDateFormat = value; Invalidate(); }
         }
 
         /// <summary>
@@ -442,7 +440,7 @@ namespace System.Windows.Forms.Calendar
         public string ItemsTimeFormat
         {
             get { return _itemsTimeFormat; }
-            set { _itemsTimeFormat = value; }
+            set { _itemsTimeFormat = value; Invalidate(); }
         }
 
         /// <summary>
@@ -453,24 +451,55 @@ namespace System.Windows.Forms.Calendar
         public int MaximumFullDays
         {
             get { return _maximumFullDays; }
-            set { _maximumFullDays = value; }
+            set
+            {
+                if (value < 1)
+                {
+                    throw new ArgumentOutOfRangeException("value", value, "MaximumFullDays must be at least 1");
+                }
+
+                if (_maximumFullDays == value) return;
+
+                _maximumFullDays = value;
+
+                // The value decides between the day/week and the month layout; apply it to the current view.
+                if (Days != null)
+                {
+                    UpdateDaysAndWeeks();
+                    Renderer.PerformLayout();
+                    Invalidate();
+                }
+            }
         }
 
         /// <summary>
         /// Gets or sets the maximum amount of days supported by the view.
-        /// Value must be multiple of 7
+        /// Value must be a positive multiple of 7, not smaller than the current view.
         /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">The value is not a positive multiple of 7,
+        /// or it is smaller than the number of days of the current view.</exception>
         [DefaultValue(35)]
         public int MaximumViewDays
         {
             get { return _maximumViewDays; }
-            set 
+            set
             {
-                if (value % 7 != 0)
+                if (value < 7 || value % 7 != 0)
                 {
-                    throw new ArgumentOutOfRangeException("value", value, "MaximumViewDays must be multiple of 7");
+                    throw new ArgumentOutOfRangeException("value", value, "MaximumViewDays must be a positive multiple of 7");
                 }
-                _maximumViewDays = value; 
+
+                // A smaller limit would make the current view invalid, and any later change that
+                // rebuilds the days (e.g. FirstDayOfWeek) would then throw.
+                int viewDays = (ViewEnd.Date - ViewStart.Date).Days + 1;
+
+                if (Days != null && viewDays > value)
+                {
+                    throw new ArgumentOutOfRangeException("value", value,
+                        string.Format("MaximumViewDays can't be smaller than the current view ({0} days); change the view first", viewDays));
+                }
+
+                _maximumViewDays = value;
             }
         }
 
@@ -481,13 +510,25 @@ namespace System.Windows.Forms.Calendar
         public CalendarRenderer Renderer
         {
             get { return _renderer; }
-            set 
-            { 
+            set
+            {
+                if (value == null)
+                {
+                    throw new ArgumentNullException("value", "The calendar needs a renderer");
+                }
+
                 _renderer = value;
 
-                if (value != null && Created)
+                if (Created)
                 {
                     value.OnInitialize(new CalendarRendererEventArgs(null, null, Rectangle.Empty));
+                }
+
+                // The new renderer has computed no layout yet (e.g. the time scale bounds are empty).
+                if (Days != null)
+                {
+                    value.PerformLayout();
+                    Invalidate();
                 }
             }
         }
@@ -523,23 +564,111 @@ namespace System.Windows.Forms.Calendar
         }
 
         /// <summary>
-        /// Gets or sets the end date-time of the view's selection.
+        /// Gets or sets the end date-time of the view's selection: the end of the last selected
+        /// time unit, or 23:59:59 of the last selected day. <see cref="DateTime.MinValue"/> when nothing is selected.
         /// </summary>
+        /// <remarks>
+        /// Setting it selects the time unit (or, in the month view, the day) that contains the moment
+        /// just before the value, so the value returned by the getter selects the same element again.
+        /// When nothing is selected, the element becomes both the start and the end of the selection.
+        /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException">The value is not in the current view.</exception>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public DateTime SelectionEnd
         {
-            get { return _selEnd; }
-            set { _selEnd = value; }
+            get
+            {
+                ICalendarSelectableElement start, end;
+                if (!GetOrderedSelection(out start, out end)) return DateTime.MinValue;
+
+                return end.Date.Add(SelectionLength(end));
+            }
+            set
+            {
+                ICalendarSelectableElement element = SelectableElementAt(value.AddTicks(-1), "value");
+
+                if (SelectedElementStart == null)
+                    SetSelectionRange(element, element);
+                else
+                    SelectedElementEnd = element;
+            }
         }
 
         /// <summary>
-        /// Gets or sets the start date-time of the view's selection.
+        /// Gets or sets the start date-time of the view's selection: the start of the first selected
+        /// time unit or day. <see cref="DateTime.MinValue"/> when nothing is selected.
         /// </summary>
+        /// <remarks>
+        /// Setting it selects the time unit (or, in the month view, the day) that contains the value.
+        /// When nothing is selected, the element becomes both the start and the end of the selection.
+        /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException">The value is not in the current view.</exception>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public DateTime SelectionStart
         {
-            get { return _selStart; }
-            set { _selStart = value; }
+            get
+            {
+                ICalendarSelectableElement start, end;
+                if (!GetOrderedSelection(out start, out end)) return DateTime.MinValue;
+
+                return start.Date;
+            }
+            set
+            {
+                ICalendarSelectableElement element = SelectableElementAt(value, "value");
+
+                if (SelectedElementEnd == null)
+                    SetSelectionRange(element, element);
+                else
+                    SetSelectionRange(element, SelectedElementEnd);
+            }
+        }
+
+        /// <summary>
+        /// Gets the selected elements, the earlier one first. <c>false</c> when nothing is selected.
+        /// </summary>
+        private bool GetOrderedSelection(out ICalendarSelectableElement start, out ICalendarSelectableElement end)
+        {
+            start = SelectedElementStart;
+            end = SelectedElementEnd;
+
+            if (start == null || end == null) return false;
+
+            if (end.CompareTo(start) < 0)
+            {
+                ICalendarSelectableElement tmp = start;
+                start = end;
+                end = tmp;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// How much time a selected element covers, the same way <see cref="CreateItemOnSelection"/> counts it.
+        /// </summary>
+        private static TimeSpan SelectionLength(ICalendarSelectableElement element)
+        {
+            CalendarTimeScaleUnit unit = element as CalendarTimeScaleUnit;
+
+            return unit != null ? unit.Duration : new TimeSpan(23, 59, 59);
+        }
+
+        /// <summary>
+        /// The element a selection date refers to: a day in the month view, a time unit otherwise.
+        /// </summary>
+        private ICalendarSelectableElement SelectableElementAt(DateTime date, string paramName)
+        {
+            ICalendarSelectableElement element = DaysMode == CalendarDaysMode.Short
+                ? (ICalendarSelectableElement)FindDay(date)
+                : GetTimeUnit(date);
+
+            if (element == null)
+            {
+                throw new ArgumentOutOfRangeException(paramName, date, "The date is not in the current view");
+            }
+
+            return element;
         }
 
         /// <summary>
@@ -1733,6 +1862,20 @@ namespace System.Windows.Forms.Calendar
                 if (AllowNew)
                     CreateItemOnSelection(string.Empty, true);
             }
+            else if (DaysMode == CalendarDaysMode.Short && SelectedElementEnd != null && MonthViewDaysForKey(e.KeyCode) != 0)
+            {
+                // The month view shows whole days (time units are hidden there), so the arrows move
+                // by a day (left/right) or a week (up/down), and Shift extends the selection.
+                CalendarDay target = FindDay(SelectedElementEnd.Date.Date.AddDays(MonthViewDaysForKey(e.KeyCode)));
+
+                if (target != null)
+                {
+                    if (e.Shift && SelectedElementStart != null)
+                        sStart = SelectedElementStart;
+
+                    sEnd = target;
+                }
+            }
             else if (e.KeyCode == Keys.Down && SelectedElementStart != null && SelectedElementEnd != null)
             {
                 if (e.Shift)
@@ -1765,7 +1908,9 @@ namespace System.Windows.Forms.Calendar
             }
             
 
-            if (sStart != null)
+            // sEnd is null when the key would leave the view; the selection then stays as it is
+            // (previously Shift+arrow at the edge of the view cleared it).
+            if (sStart != null && sEnd != null)
             {
                 SetSelectionRange(sStart, sEnd);
             }
@@ -1775,6 +1920,23 @@ namespace System.Windows.Forms.Calendar
 
                 if(sEnd is CalendarTimeScaleUnit)
                     EnsureVisible(sEnd as CalendarTimeScaleUnit);
+            }
+        }
+
+        /// <summary>
+        /// How many days an arrow or page key moves the selection in the month view; 0 for other keys.
+        /// </summary>
+        private static int MonthViewDaysForKey(Keys key)
+        {
+            switch (key)
+            {
+                case Keys.Right: return 1;
+                case Keys.Left: return -1;
+                case Keys.Down:
+                case Keys.PageDown: return 7;
+                case Keys.Up:
+                case Keys.PageUp: return -7;
+                default: return 0;
             }
         }
 

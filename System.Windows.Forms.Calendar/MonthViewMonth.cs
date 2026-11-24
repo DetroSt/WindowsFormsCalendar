@@ -150,7 +150,9 @@ namespace System.Windows.Forms.Calendar
             }
 
             curX = startX;
-            curY = startY + MonthView.DaySize.Height * 2;
+            // Below the title row and, when shown, the row of day names
+            // (the same rows that MonthView.MonthSize counts).
+            curY = startY + MonthView.DaySize.Height * (MonthView.DayNamesVisible ? 2 : 1);
 
             for (int i = 0; i < Days.Length; i++)
             {

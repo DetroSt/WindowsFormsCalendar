@@ -171,7 +171,14 @@ namespace System.Windows.Forms.Calendar
         public bool DayNamesVisible
         {
             get { return _dayNamesVisible; }
-            set { _dayNamesVisible = value; }
+            set
+            {
+                _dayNamesVisible = value;
+                // The row of day names is part of the month size and of the grid layout.
+                UpdateMonthSize();
+                UpdateMonths();
+                Invalidate();
+            }
         }
 
         /// <summary>
@@ -281,7 +288,14 @@ namespace System.Windows.Forms.Calendar
         public Padding ItemPadding
         {
             get { return _itemPadding; }
-            set { _itemPadding = value; }
+            set
+            {
+                _itemPadding = value;
+                // The padding is part of the day size, and so of the whole layout.
+                UpdateMonthSize();
+                UpdateMonths();
+                Invalidate();
+            }
         }
 
         /// <summary>
@@ -319,7 +333,7 @@ namespace System.Windows.Forms.Calendar
         public string MonthTitleFormat
         {
             get { return _monthTitleFormat; }
-            set { _monthTitleFormat = value; UpdateMonths(); }
+            set { _monthTitleFormat = value; UpdateMonths(); Invalidate(); }
         }
 
         /// <summary>
@@ -428,7 +442,7 @@ namespace System.Windows.Forms.Calendar
         public Color ArrowsSelectedColor
         {
             get { return _arrowsSelectedColor; }
-            set { _arrowsSelectedColor = value; }
+            set { _arrowsSelectedColor = value; Invalidate(); }
         }
 
 
@@ -436,7 +450,7 @@ namespace System.Windows.Forms.Calendar
         public Color ArrowsColor
         {
             get { return _arrowsColor; }
-            set { _arrowsColor = value; }
+            set { _arrowsColor = value; Invalidate(); }
         }
 
 
@@ -444,7 +458,7 @@ namespace System.Windows.Forms.Calendar
         public Color DaySelectedTextColor
         {
             get { return _daySelectedTextColor; }
-            set { _daySelectedTextColor = value; }
+            set { _daySelectedTextColor = value; Invalidate(); }
         }
 
 
@@ -452,7 +466,7 @@ namespace System.Windows.Forms.Calendar
         public Color DaySelectedColor
         {
             get { return _dayTextColor; }
-            set { _dayTextColor = value; }
+            set { _dayTextColor = value; Invalidate(); }
         }
 
 
@@ -460,14 +474,14 @@ namespace System.Windows.Forms.Calendar
         public Color DaySelectedBackgroundColor
         {
             get { return _daySelectedBackgroundColor; }
-            set { _daySelectedBackgroundColor = value; }
+            set { _daySelectedBackgroundColor = value; Invalidate(); }
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color DayBackgroundColor
         {
             get { return _dayBackgroundColor; }
-            set { _dayBackgroundColor = value; }
+            set { _dayBackgroundColor = value; Invalidate(); }
         }
 
 
@@ -475,28 +489,28 @@ namespace System.Windows.Forms.Calendar
         public Color DayGrayedText
         {
             get { return _dayGrayedText; }
-            set { _dayGrayedText = value; }
+            set { _dayGrayedText = value; Invalidate(); }
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color MonthTitleColor
         {
             get { return _monthTitleColor; }
-            set { _monthTitleColor = value; }
+            set { _monthTitleColor = value; Invalidate(); }
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color MonthTitleTextColorInactive
         {
             get { return _monthTitleTextColorInactive; }
-            set { _monthTitleTextColorInactive = value; }
+            set { _monthTitleTextColorInactive = value; Invalidate(); }
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color MonthTitleTextColor
         {
             get { return _monthTitleTextColor; }
-            set { _monthTitleTextColor = value; }
+            set { _monthTitleTextColor = value; Invalidate(); }
         }
 
 
@@ -504,7 +518,7 @@ namespace System.Windows.Forms.Calendar
         public Color MonthTitleColorInactive
         {
             get { return _monthTitleColorInactive; }
-            set { _monthTitleColorInactive = value; }
+            set { _monthTitleColorInactive = value; Invalidate(); }
         }
 
         /// <summary>
@@ -514,7 +528,7 @@ namespace System.Windows.Forms.Calendar
         public Color TodayBorderColor
         {
             get { return _todayBorderColor; }
-            set { _todayBorderColor = value; }
+            set { _todayBorderColor = value; Invalidate(); }
         }
 
 
