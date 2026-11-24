@@ -14,7 +14,6 @@ namespace CalendarDemo
     public partial class DemoForm : Form
     {
         List<CalendarItem> _items = new List<CalendarItem>();
-        CalendarItem contextItem = null;
 
         public DemoForm()
         {
@@ -58,6 +57,13 @@ namespace CalendarDemo
                     if (item.A != 0)
                     {
                         cal.ApplyColor(Color.FromArgb(item.A, item.R, item.G, item.B));
+                    }
+
+                    // Same rule for the pattern: it is drawn only when its color is not empty.
+                    if (item.PatternA != 0)
+                    {
+                        cal.Pattern = item.Pattern;
+                        cal.PatternColor = Color.FromArgb(item.PatternA, item.PatternR, item.PatternG, item.PatternB);
                     }
 
                     _items.Add(cal);
@@ -130,7 +136,27 @@ namespace CalendarDemo
 
         private void contextMenuStrip1_Opening(object sender, CancelEventArgs e)
         {
-            contextItem = calendar1.ItemAt(contextMenuStrip1.Bounds.Location);
+            // Right-clicking an item selects it, so the item actions below work on the
+            // selected items. Without a selection they would do nothing, so disable them.
+            bool hasSelection = false;
+
+            foreach (CalendarItem item in calendar1.GetSelectedItems())
+            {
+                hasSelection = true;
+                break;
+            }
+
+            ToolStripItem[] itemActions =
+            {
+                redTagToolStripMenuItem, yellowTagToolStripMenuItem, greenTagToolStripMenuItem,
+                blueTagToolStripMenuItem, otherColorTagToolStripMenuItem, patternToolStripMenuItem,
+                selectImageToolStripMenuItem, imageAlignmentToolStripMenuItem, editItemToolStripMenuItem
+            };
+
+            foreach (ToolStripItem action in itemActions)
+            {
+                action.Enabled = hasSelection;
+            }
         }
 
         private void redTagToolStripMenuItem_Click(object sender, EventArgs e)
@@ -180,7 +206,7 @@ namespace CalendarDemo
             
             foreach (CalendarItem item in _items)
             {
-                lst.Add(new ItemInfo(item.StartDate, item.EndDate, item.Text, item.BackgroundColor));
+                lst.Add(new ItemInfo(item.StartDate, item.EndDate, item.Text, item.BackgroundColor, item.Pattern, item.PatternColor));
             }
 
             XmlSerializer xmls = new XmlSerializer(lst.GetType());
@@ -289,7 +315,8 @@ namespace CalendarDemo
         {
             foreach (CalendarItem item in calendar1.GetSelectedItems())
             {
-                item.Pattern = System.Drawing.Drawing2D.HatchStyle.DiagonalCross;
+                // The pattern is drawn only when PatternColor is set, so clearing the color
+                // removes it; the hatch style no longer matters.
                 item.PatternColor = Color.Empty;
                 calendar1.Invalidate(item);
             }
@@ -344,7 +371,10 @@ namespace CalendarDemo
 
                 if (dlg.ShowDialog(this) == DialogResult.OK)
                 {
-                    Image img = Image.FromFile(dlg.FileName);
+                    // Image.FromFile keeps the file locked while the image exists. Loading from
+                    // an in-memory copy leaves the file free (the stream must stay open for the
+                    // image's lifetime, which is fine for a MemoryStream).
+                    Image img = Image.FromStream(new MemoryStream(File.ReadAllBytes(dlg.FileName)));
 
                     foreach (CalendarItem item in calendar1.GetSelectedItems())
                     {
