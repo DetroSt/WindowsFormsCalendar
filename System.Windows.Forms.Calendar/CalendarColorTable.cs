@@ -32,12 +32,19 @@ namespace System.Windows.Forms.Calendar
         /// </summary>
         /// <param name="hex"></param>
         /// <returns></returns>
+        /// <exception cref="ArgumentNullException"><paramref name="hex"/> is null.</exception>
+        /// <exception cref="FormatException"><paramref name="hex"/> is not 6 hex digits, optionally prefixed with #.</exception>
         public static Color FromHex(string hex)
         {
-            if (hex.StartsWith("#"))
-                hex = hex.Substring(1);
+            if (hex == null) throw new ArgumentNullException("hex");
 
-            if (hex.Length != 6) throw new Exception("Color not valid");
+            string digits = hex.StartsWith("#") ? hex.Substring(1) : hex;
+
+            // FormatException, like the int.Parse calls below throw for non-hex characters.
+            if (digits.Length != 6)
+                throw new FormatException(string.Format("Color \"{0}\" is not valid: expected 6 hex digits, optionally prefixed with #.", hex));
+
+            hex = digits;
 
             return Color.FromArgb(
                 int.Parse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber),

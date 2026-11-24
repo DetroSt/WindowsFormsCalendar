@@ -445,7 +445,7 @@ namespace System.Windows.Forms.Calendar
             {
                 if (value % 7 != 0)
                 {
-                    throw new Exception("MaximumViewDays must be multiple of 7");
+                    throw new ArgumentOutOfRangeException("value", value, "MaximumViewDays must be multiple of 7");
                 }
                 _maximumViewDays = value; 
             }
@@ -1339,7 +1339,10 @@ namespace System.Windows.Forms.Calendar
 
             if (span.Days < 1 || span.Days > MaximumViewDays)
             {
-                throw new Exception("Days between ViewStart and ViewEnd should be between 1 and MaximumViewDays");
+                // Reached from the ViewStart / ViewEnd setters and SetViewRange, so the cause is the new range.
+                throw new ArgumentOutOfRangeException("value", span.Days,
+                    string.Format("Days between ViewStart ({0:d}) and ViewEnd ({1:d}) should be between 1 and MaximumViewDays ({2})",
+                        ViewStart, ViewEnd, MaximumViewDays));
             }
 
             if (span.Days > MaximumFullDays)
