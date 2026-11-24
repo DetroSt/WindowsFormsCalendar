@@ -99,6 +99,7 @@ namespace System.Windows.Forms.Calendar
             if (Calendar != null)
             {
                 Calendar.UpdateHighlights();
+                Calendar.Invalidate();
             }
         }
 

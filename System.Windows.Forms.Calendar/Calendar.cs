@@ -387,7 +387,30 @@ namespace System.Windows.Forms.Calendar
         public CalendarHighlightRange[] HighlightRanges
         {
             get { return _highlightRanges; }
-            set { _highlightRanges = value; UpdateHighlights(); }
+            set
+            {
+                if (_highlightRanges != null)
+                {
+                    foreach (CalendarHighlightRange range in _highlightRanges)
+                    {
+                        if (range != null && range.Calendar == this)
+                            range.SetCalendar(null);
+                    }
+                }
+
+                // null means no highlighted time.
+                _highlightRanges = value ?? new CalendarHighlightRange[0];
+
+                // Lets the ranges update the highlights when their day or times are changed later.
+                foreach (CalendarHighlightRange range in _highlightRanges)
+                {
+                    if (range != null)
+                        range.SetCalendar(this);
+                }
+
+                UpdateHighlights();
+                Invalidate();
+            }
         }
 
         /// <summary>
@@ -545,8 +568,21 @@ namespace System.Windows.Forms.Calendar
         public CalendarTimeScale TimeScale
         {
             get { return _timeScale; }
-            set 
-            { 
+            set
+            {
+                // TimeUnitsOffset counts units of the current scale; remember the time at the top
+                // of the view, so the view stays at the same time of day with the new scale.
+                int topMinutes = -_timeUnitsOffset * (int)_timeScale;
+
+                // A selection of time units refers to the units being replaced; it would stay
+                // selected but no longer be part of the view, so drop it.
+                if (_selectedElementStart is CalendarTimeScaleUnit || _selectedElementEnd is CalendarTimeScaleUnit)
+                {
+                    ClearSelectedComponents();
+                    _selectedElementStart = null;
+                    _selectedElementEnd = null;
+                }
+
                 _timeScale = value;
 
                 if (Days != null)
@@ -556,6 +592,8 @@ namespace System.Windows.Forms.Calendar
                         Days[i].UpdateUnits();
                     }
                 }
+
+                _timeUnitsOffset = -ClampUnitsFromMidnight(topMinutes / (int)value);
 
                 Renderer.PerformLayout();
                 Refresh();
@@ -672,20 +710,28 @@ namespace System.Windows.Forms.Calendar
             if (Days == null || Days.Length == 0 || Days[0].TimeUnits == null) return;
 
             // Same rounding as before: whole time units, counted from midnight.
-            int unitsFromMidnight = (int)(60 / (int)_timeScale * num);
-
-            // Same limits as ScrollTimeUnits: not above midnight, and not past the point
-            // where the last time unit reaches the bottom of the view.
-            int units = Days[0].TimeUnits.Length;
-            int visible = Math.Max(1, Renderer.GetVisibleTimeUnits());
-            int maxUnitsFromMidnight = Math.Max(0, units - visible);
-
-            unitsFromMidnight = Math.Max(0, Math.Min(unitsFromMidnight, maxUnitsFromMidnight));
+            int unitsFromMidnight = ClampUnitsFromMidnight((int)(60 / (int)_timeScale * num));
 
             if (TimeUnitsOffset != -unitsFromMidnight)
             {
                 TimeUnitsOffset = -unitsFromMidnight;
             }
+        }
+
+        /// <summary>
+        /// Limits the number of time units scrolled from midnight the same way as <see cref="ScrollTimeUnits"/>:
+        /// not above midnight, and not past the point where the last time unit reaches the bottom of the view.
+        /// </summary>
+        private int ClampUnitsFromMidnight(int unitsFromMidnight)
+        {
+            if (Days == null || Days.Length == 0 || Days[0].TimeUnits == null)
+                return 0;
+
+            int units = Days[0].TimeUnits.Length;
+            int visible = Math.Max(1, Renderer.GetVisibleTimeUnits());
+            int maxUnitsFromMidnight = Math.Max(0, units - visible);
+
+            return Math.Max(0, Math.Min(unitsFromMidnight, maxUnitsFromMidnight));
         }
                                     
         /// <summary>
@@ -804,8 +850,10 @@ namespace System.Windows.Forms.Calendar
 
             if (unit.Bounds.Bottom > view.Bottom)
             {
-                TimeUnitsOffset = -Convert.ToInt32(Math.Ceiling(unit.Date.TimeOfDay.TotalMinutes / (double)TimeScale))
-                     + Renderer.GetVisibleTimeUnits();
+                // Scroll so the unit is the last fully visible one: with V visible units the view
+                // then starts at unit (index - V + 1).
+                int index = Convert.ToInt32(Math.Ceiling(unit.Date.TimeOfDay.TotalMinutes / (double)TimeScale));
+                TimeUnitsOffset = -ClampUnitsFromMidnight(index - Renderer.GetVisibleTimeUnits() + 1);
             }
             else if (unit.Bounds.Top < view.Top)
             {

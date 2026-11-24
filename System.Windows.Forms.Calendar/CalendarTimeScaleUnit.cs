@@ -161,7 +161,7 @@ namespace System.Windows.Forms.Calendar
             {
                 CalendarHighlightRange range = Day.Calendar.HighlightRanges[i];
 
-                if (range.DayOfWeek != Date.DayOfWeek) 
+                if (range == null || range.DayOfWeek != Date.DayOfWeek)
                     continue;
 
                 if (Date.TimeOfDay.CompareTo(range.StartTime) >= 0
