@@ -1534,7 +1534,13 @@ namespace System.Windows.Forms.Calendar
 
                 OnDrawDayHeaderText(hevt);
 
-                if (devt.TextSize.Width < day.HeaderBounds.Width - hevt.TextSize.Width * 2
+                string holiday = day.HolidayName;
+
+                if (!string.IsNullOrEmpty(holiday))
+                {
+                    DrawDayHolidayName(e, day, holiday, hevt, devt);
+                }
+                else if (devt.TextSize.Width < day.HeaderBounds.Width - hevt.TextSize.Width * 2
                     && e.Calendar.DaysMode == CalendarDaysMode.Expanded)
                 {
                     OnDrawDayHeaderText(devt);
@@ -1546,6 +1552,57 @@ namespace System.Windows.Forms.Calendar
             OnDrawDayTimeUnits(e);
             OnDrawDayTop(e);
             OnDrawDayBorder(e);
+        }
+
+        /// <summary>
+        /// Puts the holiday name in the day header: in the day/week view in place of the day name
+        /// ("day name · holiday" when both fit), in the month view right of the day number.
+        /// The text is cut with an ellipsis when it doesn't fit.
+        /// </summary>
+        private void DrawDayHolidayName(CalendarRendererDayEventArgs e, CalendarDay day, string holiday,
+            CalendarRendererBoxEventArgs dayNumber, CalendarRendererBoxEventArgs dayName)
+        {
+            Rectangle header = day.HeaderBounds;
+            const int gap = 4;
+            Rectangle area;
+            string text = holiday;
+            TextFormatFlags align;
+
+            if (e.Calendar.DaysMode == CalendarDaysMode.Expanded)
+            {
+                // Centered, but clear of the day number on the left.
+                int margin = dayNumber.TextSize.Width + gap;
+                area = Rectangle.FromLTRB(header.Left + margin, header.Top, header.Right - margin, header.Bottom);
+                align = TextFormatFlags.HorizontalCenter;
+
+                string both = dayName.Text + " · " + holiday;
+                if (TextRenderer.MeasureText(both, dayName.Font).Width < area.Width)
+                    text = both;
+            }
+            else
+            {
+                area = Rectangle.FromLTRB(header.Left + dayNumber.TextSize.Width + gap, header.Top, header.Right - gap, header.Bottom);
+                align = TextFormatFlags.Right;
+            }
+
+            if (area.Width <= 0) return;
+
+            CalendarRendererBoxEventArgs evt = new CalendarRendererBoxEventArgs(e, area, text,
+                align | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+            evt.Format &= ~TextFormatFlags.WordBreak;
+            evt.Tag = day;
+
+            OnDrawDayHolidayName(evt);
+        }
+
+        /// <summary>
+        /// Paints the name of a holiday in a day header (see <see cref="Calendar.Holidays"/>).
+        /// <see cref="CalendarRendererEventArgs.Tag"/> is the <see cref="CalendarDay"/>.
+        /// </summary>
+        /// <param name="e">Paint info</param>
+        public virtual void OnDrawDayHolidayName(CalendarRendererBoxEventArgs e)
+        {
+            DrawStandarBoxText(e);
         }
 
         /// <summary>

@@ -157,6 +157,9 @@ namespace System.Windows.Forms.Calendar
         /// <returns></returns>
         internal bool CheckHighlighted()
         {
+            // No work time on holidays.
+            if (Day.IsHoliday) return false;
+
             for (int i = 0; i < Day.Calendar.HighlightRanges.Length; i++)
             {
                 CalendarHighlightRange range = Day.Calendar.HighlightRanges[i];

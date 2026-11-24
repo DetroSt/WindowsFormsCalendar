@@ -253,6 +253,26 @@ namespace System.Windows.Forms.Calendar
         /// </summary>
         public Color DayOverflowSelectedBackground = Color.Orange;
 
+        /// <summary>
+        /// Background color of holidays in the month view (see <see cref="Calendar.Holidays"/>)
+        /// </summary>
+        public Color HolidayBackground = Color.FromArgb(255, 228, 228);
+
+        /// <summary>
+        /// Background color of the time units of holidays in the day and week views
+        /// </summary>
+        public Color HolidayTimeUnitBackground = Color.FromArgb(255, 236, 236);
+
+        /// <summary>
+        /// Background color of the day top (all-day area) of holidays
+        /// </summary>
+        public Color HolidayDayTopBackground = Color.FromArgb(250, 214, 214);
+
+        /// <summary>
+        /// Color of holiday names in day headers
+        /// </summary>
+        public Color HolidayText = Color.FromArgb(176, 0, 0);
+
         #endregion
     }
 }

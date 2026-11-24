@@ -84,6 +84,11 @@ namespace System.Windows.Forms.Calendar
         private Color _arrowsSelectedColor;
         private Color _dayGrayedText;
         private Color _todayBorderColor;
+        private Color _holidayBackgroundColor = Color.FromArgb(255, 228, 228);
+        private Color _holidayTextColor = Color.FromArgb(176, 0, 0);
+        private CalendarHolidays _holidays;
+        private ToolTip _holidayToolTip;
+        private MonthViewDay _holidayToolTipDay;
         private int _maxSelectionCount;
         private Rectangle _forwardButtonBounds;
         private bool _forwardButtonSelected;
@@ -553,6 +558,92 @@ namespace System.Windows.Forms.Calendar
             set { _todayBorderColor = value; Invalidate(); }
         }
 
+        /// <summary>
+        /// Gets or sets the background color of holidays (see <see cref="Holidays"/>) that are not selected
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+        public Color HolidayBackgroundColor
+        {
+            get { return _holidayBackgroundColor; }
+            set { _holidayBackgroundColor = value; Invalidate(); }
+        }
+
+        /// <summary>
+        /// Gets or sets the text color of holidays (see <see cref="Holidays"/>) that are not selected or grayed
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+        public Color HolidayTextColor
+        {
+            get { return _holidayTextColor; }
+            set { _holidayTextColor = value; Invalidate(); }
+        }
+
+        /// <summary>
+        /// Gets or sets the holidays shown with <see cref="HolidayBackgroundColor"/>; the holiday name is shown
+        /// as a tooltip over the day. The same set can be used by a <see cref="Calendar"/>.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
+        public CalendarHolidays Holidays
+        {
+            get { return _holidays; }
+            set
+            {
+                if (_holidays == value) return;
+
+                if (_holidays != null) _holidays.Changed -= Holidays_Changed;
+                _holidays = value;
+                if (_holidays != null) _holidays.Changed += Holidays_Changed;
+
+                Invalidate();
+            }
+        }
+
+        private void Holidays_Changed(object sender, EventArgs e)
+        {
+            Invalidate();
+        }
+
+        /// <summary>
+        /// Shows the name of the holiday under the mouse as a tooltip (day cells are too small for it).
+        /// </summary>
+        private void UpdateHolidayToolTip(MonthViewDay day)
+        {
+            if (day == _holidayToolTipDay) return;
+            _holidayToolTipDay = day;
+
+            string name = day != null && day.Visible && Holidays != null ? Holidays.GetName(day.Date) : null;
+
+            if (string.IsNullOrEmpty(name))
+            {
+                if (_holidayToolTip != null) _holidayToolTip.SetToolTip(this, null);
+                return;
+            }
+
+            if (_holidayToolTip == null) _holidayToolTip = new ToolTip();
+            _holidayToolTip.SetToolTip(this, name);
+        }
+
+        /// <summary>
+        /// Gets the text of the holiday tooltip currently set for the control, or <c>null</c>.
+        /// </summary>
+        internal string HolidayToolTipText
+        {
+            get { return _holidayToolTip == null ? null : _holidayToolTip.GetToolTip(this); }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                // A shared holiday set would otherwise keep this control alive through its Changed event.
+                if (_holidays != null) _holidays.Changed -= Holidays_Changed;
+                if (_holidayToolTip != null) _holidayToolTip.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+
 
         #endregion
 
@@ -872,6 +963,8 @@ namespace System.Windows.Forms.Calendar
         {
             base.OnMouseMove(e);
 
+            UpdateHolidayToolTip(HitTest(e.Location));
+
             if (_mouseDown)
             {
                 MonthViewDay day = HitTest(e.Location);
@@ -1002,10 +1095,12 @@ namespace System.Windows.Forms.Calendar
                     {
                         if (!day.Visible) continue;
 
+                        bool holiday = Holidays != null && Holidays.IsHoliday(day.Date);
+
                         MonthViewBoxEventArgs evtDay = new MonthViewBoxEventArgs(e.Graphics, day.Bounds, day.Date.Day.ToString(),
                             StringAlignment.Far,
-                            day.Grayed ? DayGrayedText : (day.Selected ? DaySelectedTextColor : DaySelectedColor),
-                            day.Selected ? DaySelectedBackgroundColor : DayBackgroundColor);
+                            day.Grayed ? DayGrayedText : (day.Selected ? DaySelectedTextColor : (holiday ? HolidayTextColor : DaySelectedColor)),
+                            day.Selected ? DaySelectedBackgroundColor : (holiday ? HolidayBackgroundColor : DayBackgroundColor));
 
                         if (day.Date.Equals(DateTime.Now.Date))
                         {

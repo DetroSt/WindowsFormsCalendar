@@ -28,6 +28,20 @@ dotnet test System.Windows.Forms.Calendar.sln
 - **Week headers** in the month view use `WeekNumberFormat` (e.g. `"Tydz. {0}"`); without it they show `KW {0}` for German and `Week {0}` otherwise. Week numbers follow the current culture's rules.
 - **Selection**: `SelectionStart` / `SelectionEnd` return the selected range and select the time units (or, in the month view, the days) containing the given dates.
 
+### Holidays
+
+Days off can be shown with a different background in `Calendar` (all views) and `MonthView`. In `Calendar` the holiday name is shown in the day header and work time (`HighlightRanges`) is not highlighted on holidays; in `MonthView` the name is shown as a tooltip.
+
+```csharp
+CalendarHolidays holidays = CalendarHolidays.LoadICalendar("holidays.ics");
+calendar1.Holidays = holidays;   // one set can be shared by both controls
+monthView1.Holidays = holidays;
+```
+
+The file is an iCalendar (`.ics`) file, UTF-8. Every `VEVENT` is a holiday: `SUMMARY` is its name, `DTSTART` its first day and `DTEND` (exclusive, as in all-day events) its end. Fixed-date holidays can repeat with `RRULE:FREQ=YEARLY` (with `INTERVAL`, `COUNT`, `UNTIL`, `EXDATE`); other recurrence rules (e.g. `BYDAY`) are reported as errors (`FormatException` with the line number), so movable holidays such as Easter are listed with their dates. Holidays can also be added from code (`Add`, `AddYearly`). Colors: `CalendarColorTable.HolidayBackground`, `HolidayTimeUnitBackground`, `HolidayDayTopBackground`, `HolidayText`, and `MonthView.HolidayBackgroundColor` / `HolidayTextColor`.
+
+`CalendarDemo` loads `holidays.ics` from its folder; the sample file lists Polish public holidays (movable ones for 2026-2027) and should be checked against the official list before relying on it.
+
 ### Behaviour changes in this fork
 
 Some setters now validate their values and throw instead of leaving the control in a broken state:

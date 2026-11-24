@@ -206,6 +206,7 @@ namespace System.Windows.Forms.Calendar
         private string _itemsTimeFormat;
         private string _weekNumberFormat;
         private bool _itemsLayoutPending;
+        private CalendarHolidays _holidays;
         private int _maximumFullDays;
         private int _maximumViewDays;
         private CalendarRenderer _renderer;
@@ -444,6 +445,34 @@ namespace System.Windows.Forms.Calendar
         {
             get { return _itemsTimeFormat; }
             set { _itemsTimeFormat = value; Invalidate(); }
+        }
+
+        /// <summary>
+        /// Gets or sets the holidays shown with a different background (and their names in the day headers).
+        /// Work time (<see cref="HighlightRanges"/>) is not highlighted on holidays. The same set can be
+        /// used by several controls, e.g. a <see cref="MonthView"/>; changes to it repaint the calendar.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
+        public CalendarHolidays Holidays
+        {
+            get { return _holidays; }
+            set
+            {
+                if (_holidays == value) return;
+
+                if (_holidays != null) _holidays.Changed -= Holidays_Changed;
+                _holidays = value;
+                if (_holidays != null) _holidays.Changed += Holidays_Changed;
+
+                Holidays_Changed(this, EventArgs.Empty);
+            }
+        }
+
+        private void Holidays_Changed(object sender, EventArgs e)
+        {
+            UpdateHighlights();
+            Invalidate();
         }
 
         /// <summary>
@@ -2357,6 +2386,17 @@ namespace System.Windows.Forms.Calendar
 
             ///Overflow marks
             Renderer.OnDrawOverflows(evt);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            // A shared holiday set would otherwise keep this control alive through its Changed event.
+            if (disposing && _holidays != null)
+            {
+                _holidays.Changed -= Holidays_Changed;
+            }
+
+            base.Dispose(disposing);
         }
 
         protected override void OnResize(EventArgs e)

@@ -35,8 +35,36 @@ namespace CalendarDemo
             }
         }
 
+        /// <summary>
+        /// Holidays shown by both controls, read from holidays.ics next to the program (if it exists).
+        /// </summary>
+        public FileInfo HolidaysFile
+        {
+            get { return new FileInfo(Path.Combine(Application.StartupPath, "holidays.ics")); }
+        }
+
+        private void LoadHolidays()
+        {
+            if (!HolidaysFile.Exists) return;
+
+            try
+            {
+                CalendarHolidays holidays = CalendarHolidays.LoadICalendar(HolidaysFile.FullName);
+                calendar1.Holidays = holidays;
+                monthView1.Holidays = holidays;
+            }
+            catch (Exception ex) when (ex is FormatException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                MessageBox.Show(this,
+                    "The holidays could not be loaded from " + HolidaysFile.FullName + ":\n" + ex.Message,
+                    "Calendar Demo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
         private void Form1_Load(object sender, EventArgs e)
         {
+            LoadHolidays();
+
             if (ItemsFile.Exists)
             {
                 List<ItemInfo> lst;

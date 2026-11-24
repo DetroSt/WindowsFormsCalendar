@@ -129,6 +129,23 @@ namespace System.Windows.Forms.Calendar
         }
 
         /// <summary>
+        /// Gets the name of the holiday on this day from <see cref="Calendar.Holidays"/>,
+        /// or <c>null</c> if the day is not a holiday.
+        /// </summary>
+        public string HolidayName
+        {
+            get { return Calendar.Holidays == null ? null : Calendar.Holidays.GetName(Date); }
+        }
+
+        /// <summary>
+        /// Gets a value indicating if this day is a holiday in <see cref="Calendar.Holidays"/>.
+        /// </summary>
+        public bool IsHoliday
+        {
+            get { return Calendar.Holidays != null && Calendar.Holidays.IsHoliday(Date); }
+        }
+
+        /// <summary>
         /// Gets the time units contained on the day
         /// </summary>
         public CalendarTimeScaleUnit[] TimeUnits

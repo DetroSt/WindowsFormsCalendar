@@ -66,7 +66,14 @@ namespace System.Windows.Forms.Calendar
             {
                 using (Brush b = new SolidBrush(ColorTable.DayBackgroundSelected))
                 {
-                    e.Graphics.FillRectangle(b, r); 
+                    e.Graphics.FillRectangle(b, r);
+                }
+            }
+            else if (e.Day.IsHoliday)
+            {
+                using (Brush b = new SolidBrush(ColorTable.HolidayBackground))
+                {
+                    e.Graphics.FillRectangle(b, r);
                 }
             }
             else if (e.Day.Date.Month % 2 == 0)
@@ -116,8 +123,11 @@ namespace System.Windows.Forms.Calendar
         public override void OnDrawDayTop(CalendarRendererDayEventArgs e)
         {
             bool s = e.Day.DayTop.Selected;
+            Color background = s ? ColorTable.DayTopSelectedBackground
+                : e.Day.IsHoliday ? ColorTable.HolidayDayTopBackground
+                : ColorTable.DayTopBackground;
 
-            using (Brush b = new SolidBrush( s ? ColorTable.DayTopSelectedBackground : ColorTable.DayTopBackground))
+            using (Brush b = new SolidBrush(background))
             {
                 e.Graphics.FillRectangle(b, e.Day.DayTop.Bounds);
             }
@@ -140,6 +150,13 @@ namespace System.Windows.Forms.Calendar
             }
 
             base.OnDrawDayHeaderBackground(e);
+        }
+
+        public override void OnDrawDayHolidayName(CalendarRendererBoxEventArgs e)
+        {
+            e.TextColor = ColorTable.HolidayText;
+
+            base.OnDrawDayHolidayName(e);
         }
 
         public override void OnDrawWeekHeader(CalendarRendererBoxEventArgs e)
@@ -168,6 +185,10 @@ namespace System.Windows.Forms.Calendar
                 if (e.Unit.Selected)
                 {
                     b.Color = ColorTable.TimeUnitSelectedBackground;
+                }
+                else if (e.Unit.Day.IsHoliday)
+                {
+                    b.Color = ColorTable.HolidayTimeUnitBackground;
                 }
                 else if (e.Unit.Highlighted)
                 {
