@@ -837,9 +837,6 @@ namespace System.Windows.Forms.Calendar
                 Controls.Remove(TextBox);
                 TextBox.Dispose();
             }
-            
-            if(_editModeItem != null)
-                Invalidate(itemBuffer);
 
             _textBox = null;
 
@@ -857,6 +854,10 @@ namespace System.Windows.Forms.Calendar
                 itemBuffer.Text = cancelText;
             }
 
+            // Repaint the whole item with its final text (the new one, or the old one if the edit
+            // was cancelled). Previously this was guarded by _editModeItem != null, which is always
+            // false here because _editModeItem is cleared above, so it never ran.
+            Invalidate(itemBuffer);
 
             _creatingItem = false;
             _finalizingEdition = false;

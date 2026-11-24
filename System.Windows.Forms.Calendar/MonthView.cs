@@ -183,7 +183,9 @@ namespace System.Windows.Forms.Calendar
         public DayOfWeek FirstDayOfWeek
         {
             get { return _weekStart; }
-            set { _weekStart = value; }
+            // Rebuild the month grids and repaint, like ViewStart does; otherwise the change
+            // only showed up after something else rebuilt the months.
+            set { _weekStart = value; UpdateMonths(); Invalidate(); }
         }
 
         /// <summary>
