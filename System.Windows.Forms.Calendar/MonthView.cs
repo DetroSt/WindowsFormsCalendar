@@ -51,6 +51,7 @@ namespace System.Windows.Forms.Calendar
         #region Fields
         private int _forwardMonthIndex;
         private MonthViewDay _lastHitted;
+        private DateTime _selectionAnchor;
         private bool _mouseDown;
         private Size _daySize;
         //fix
@@ -610,9 +611,9 @@ namespace System.Windows.Forms.Calendar
         private void SelectWeek(DateTime hit)
         {
             int preDays = ((int)hit.DayOfWeek - (int)FirstDayOfWeek + 7) % 7; // days back to the week start, always 0..6
+            DateTime start = hit.AddDays(-preDays);
 
-            _selectionStart = hit.AddDays(-preDays);
-            SelectionEnd = SelectionStart.AddDays(6);
+            SelectRange(start, start.AddDays(6), hit);
         }
 
         /// <summary>
@@ -622,9 +623,10 @@ namespace System.Windows.Forms.Calendar
         private void SelectWorkWeek(DateTime hit)
         {
             int preDays = ((int)hit.DayOfWeek - (int)WorkWeekStart + 7) % 7; // days back to the week start, always 0..6
+            int length = ((int)WorkWeekEnd - (int)WorkWeekStart + 7) % 7;      // also right when the work week wraps past Saturday
+            DateTime start = hit.AddDays(-preDays);
 
-            _selectionStart = hit.AddDays(-preDays);
-            SelectionEnd = SelectionStart.AddDays(Math.Abs(WorkWeekStart - WorkWeekEnd));
+            SelectRange(start, start.AddDays(length), hit);
         }
 
         /// <summary>
@@ -633,8 +635,42 @@ namespace System.Windows.Forms.Calendar
         /// <param name="hit"></param>
         private void SelectMonth(DateTime hit)
         {
-            _selectionStart = new DateTime(hit.Year, hit.Month, 1);
-            SelectionEnd = new DateTime(hit.Year, hit.Month, DateTime.DaysInMonth(hit.Year, hit.Month));
+            SelectRange(
+                new DateTime(hit.Year, hit.Month, 1),
+                new DateTime(hit.Year, hit.Month, DateTime.DaysInMonth(hit.Year, hit.Month)),
+                hit);
+        }
+
+        /// <summary>
+        /// Selects the days from <paramref name="start"/> to <paramref name="end"/> with one repaint and
+        /// one <see cref="SelectionChanged"/> event. If the range is longer than <see cref="MaxSelectionCount"/>,
+        /// it is shortened to that many days, always keeping <paramref name="keep"/> selected.
+        /// </summary>
+        private void SelectRange(DateTime start, DateTime end, DateTime keep)
+        {
+            start = start.Date;
+            end = end.Date;
+            keep = keep.Date;
+
+            if (MaxSelectionCount > 0 && (end - start).Days + 1 > MaxSelectionCount)
+            {
+                if (keep == end)
+                {
+                    start = end.AddDays(-(MaxSelectionCount - 1));
+                }
+                else
+                {
+                    if ((keep - start).Days >= MaxSelectionCount)
+                        start = keep.AddDays(-(MaxSelectionCount - 1));
+
+                    end = start.AddDays(MaxSelectionCount - 1);
+                }
+            }
+
+            _selectionStart = start;
+            _selectionEnd = end.Add(new TimeSpan(23, 59, 59));
+            Invalidate();
+            OnSelectionChanged(EventArgs.Empty);
         }
 
         /// <summary>
@@ -735,7 +771,8 @@ namespace System.Windows.Forms.Calendar
             MonthViewMonth last = Months[_forwardMonthIndex];
 
             SetBackwardButtonBounds(new Rectangle(first.Bounds.Left + ItemPadding.Left, first.Bounds.Top + ItemPadding.Top, DaySize.Height - ItemPadding.Horizontal, DaySize.Height - ItemPadding.Vertical));
-            SetForwardButtonBounds(new Rectangle(first.Bounds.Right - ItemPadding.Right - BackwardButtonBounds.Width, first.Bounds.Top + ItemPadding.Top, BackwardButtonBounds.Width, BackwardButtonBounds.Height ));
+            // The forward button belongs to the last month of the first row (where OnPaint draws it).
+            SetForwardButtonBounds(new Rectangle(last.Bounds.Right - ItemPadding.Right - BackwardButtonBounds.Width, last.Bounds.Top + ItemPadding.Top, BackwardButtonBounds.Width, BackwardButtonBounds.Height ));
         }
 
         #endregion
@@ -759,13 +796,19 @@ namespace System.Windows.Forms.Calendar
 
             MonthViewDay day = HitTest(e.Location);
 
+            // A new drag starts here; the day where the previous drag ended must not be skipped.
+            _lastHitted = day;
+
             if (day != null)
             {
+                // Manual selection always spans from this day to the day under the mouse.
+                _selectionAnchor = day.Date;
+
                 switch (SelectionMode)
                 {
                     case MonthViewSelection.Manual:
                     case MonthViewSelection.Day:
-                        SelectionEnd = _selectionStart = day.Date;
+                        SelectRange(day.Date, day.Date, day.Date);
                         break;
                     case MonthViewSelection.WorkWeek:
                         SelectWorkWeek(day.Date);
@@ -802,17 +845,17 @@ namespace System.Windows.Forms.Calendar
                     switch (SelectionMode)
                     {
                         case MonthViewSelection.Manual:
-                            if (day.Date > SelectionStart)
+                            if (day.Date >= _selectionAnchor)
                             {
-                                SelectionEnd = day.Date;
+                                SelectRange(_selectionAnchor, day.Date, _selectionAnchor);
                             }
                             else
                             {
-                                SelectionStart = day.Date;
+                                SelectRange(day.Date, _selectionAnchor, _selectionAnchor);
                             }
                             break;
                         case MonthViewSelection.Day:
-                            SelectionEnd = _selectionStart = day.Date;
+                            SelectRange(day.Date, day.Date, day.Date);
                             break;
                         case MonthViewSelection.WorkWeek:
                             SelectWorkWeek(day.Date);

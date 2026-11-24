@@ -1923,20 +1923,27 @@ namespace System.Windows.Forms.Calendar
                         TimeSpan duration = itemOnState.Duration;
                         itemOnState.SetIsDragging(true);
 
+                        // Keep the item where it was grabbed relative to the mouse: without the offset
+                        // the item's start jumped to the element under the mouse on the first move.
+                        DateTime target = hitted.Date.AddMinutes(draggingOffsetInMinutes);
+                        DateTime newStart;
+
                         if ((this.DaysMode == CalendarDaysMode.Short) || (hitted is CalendarDayTop))
                         {
-                            itemOnState.StartDate = new DateTime(hitted.Date.Year, hitted.Date.Month, hitted.Date.Day,
-                                                        itemOnState.StartDate.Hour,
-                                                        itemOnState.StartDate.Minute,
-                                                        itemOnState.StartDate.Second);
+                            // Moving between days keeps the time of day.
+                            newStart = target.Date.Add(itemOnState.StartDate.TimeOfDay);
                         }
                         else
-                            itemOnState.StartDate = hitted.Date;
+                            newStart = target;
 
-                        itemOnState.EndDate = itemOnState.StartDate.Add(duration);
-                        Renderer.PerformItemsLayout();
-                        Invalidate();
-                        itemOnStateChanged = true;
+                        if (newStart != itemOnState.StartDate)
+                        {
+                            itemOnState.StartDate = newStart;
+                            itemOnState.EndDate = newStart.Add(duration);
+                            Renderer.PerformItemsLayout();
+                            Invalidate();
+                            itemOnStateChanged = true;
+                        }
                         break;
                     case CalendarState.ResizingItem:
                         //fix

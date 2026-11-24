@@ -15,6 +15,12 @@ namespace System.Windows.Forms.Calendar.Tests
         public void PressKey(Keys key) => OnKeyDown(new KeyEventArgs(key));
 
         public void TypeChar(char c) => OnKeyPress(new KeyPressEventArgs(c));
+
+        public void MouseDownAt(Point p) => OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, p.X, p.Y, 0));
+
+        public void MouseMoveTo(Point p) => OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, p.X, p.Y, 0));
+
+        public void MouseUpAt(Point p) => OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, p.X, p.Y, 0));
     }
 
     /// <summary>
