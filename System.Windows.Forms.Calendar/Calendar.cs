@@ -203,7 +203,8 @@ namespace System.Windows.Forms.Calendar
         private CalendarHighlightRange[] _highlightRanges;
         private CalendarItemCollection _items;
         private string _itemsDateFormat;
-        private string _itemsTimeFormat; 
+        private string _itemsTimeFormat;
+        private string _weekNumberFormat;
         private int _maximumFullDays;
         private int _maximumViewDays;
         private CalendarRenderer _renderer;
@@ -441,6 +442,37 @@ namespace System.Windows.Forms.Calendar
         {
             get { return _itemsTimeFormat; }
             set { _itemsTimeFormat = value; Invalidate(); }
+        }
+
+        /// <summary>
+        /// Gets or sets the composite format of the week headers in the month view, where {0} is
+        /// the week number, e.g. "Tydz. {0}". When empty, "KW {0}" is used for German and
+        /// "Week {0}" for other cultures.
+        /// </summary>
+        /// <exception cref="ArgumentException">The value is not a valid composite format.</exception>
+        [DefaultValue(null)]
+        [Description("Format of week headers in the month view; {0} is the week number")]
+        public string WeekNumberFormat
+        {
+            get { return _weekNumberFormat; }
+            set
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    // Check now; an invalid format would otherwise throw on every repaint.
+                    try
+                    {
+                        string.Format(value, 1);
+                    }
+                    catch (FormatException ex)
+                    {
+                        throw new ArgumentException("WeekNumberFormat is not a valid format: " + ex.Message, "value", ex);
+                    }
+                }
+
+                _weekNumberFormat = value;
+                Invalidate();
+            }
         }
 
         /// <summary>

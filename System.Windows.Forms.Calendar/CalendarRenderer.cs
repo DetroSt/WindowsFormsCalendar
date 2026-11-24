@@ -1712,8 +1712,11 @@ namespace System.Windows.Forms.Calendar
                     e.Graphics.SmoothingMode = smbuff;
                 }
 
-            } 
+            }
             #endregion
+
+            // Graphics.Clip returns a new Region each time; it is only needed for restoring the clip above.
+            oldclip.Dispose();
         }
 
         /// <summary>
@@ -2032,19 +2035,17 @@ namespace System.Windows.Forms.Calendar
         /// <param name="e">Paint info</param>
         public virtual void OnDrawWeekHeader(CalendarRendererBoxEventArgs e)
         {
-            StringFormat sf = new StringFormat();
-            sf.FormatFlags = StringFormatFlags.DirectionVertical | StringFormatFlags.DirectionRightToLeft | StringFormatFlags.NoWrap;
-            sf.LineAlignment = StringAlignment.Center;
-            sf.Alignment = StringAlignment.Center;
-
+            using (StringFormat sf = new StringFormat())
             using (SolidBrush b = new SolidBrush(e.TextColor))
             {
+                sf.FormatFlags = StringFormatFlags.DirectionVertical | StringFormatFlags.DirectionRightToLeft | StringFormatFlags.NoWrap;
+                sf.LineAlignment = StringAlignment.Center;
+                sf.Alignment = StringAlignment.Center;
+
                 e.Graphics.DrawString(e.Text, e.Font, b, e.Bounds, sf);
             }
 
             e.Graphics.ResetTransform();
-
-            sf.Dispose();
         }
 
 

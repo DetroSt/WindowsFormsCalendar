@@ -81,18 +81,40 @@ namespace System.Windows.Forms.Calendar
 
         #region Public Methods
         /// <summary>
-        /// Returns week number
+        /// Gets the number of this week by the rules of the current culture.
         /// </summary>
-        /// <returns></returns>
+        /// <remarks>
+        /// The number is taken for the middle day of the row (<see cref="StartDate"/> + 3), so it is
+        /// the week most of the row's days belong to even when the calendar's weeks start on another
+        /// day than the culture's (e.g. Sunday rows in a Monday culture). For rows starting on Monday
+        /// that day is Thursday, which is what defines ISO 8601 weeks.
+        /// </remarks>
+        public int WeekNumber
+        {
+            get
+            {
+                System.Globalization.CultureInfo culture = System.Globalization.CultureInfo.CurrentCulture;
+
+                return culture.Calendar.GetWeekOfYear(StartDate.AddDays(3),
+                    culture.DateTimeFormat.CalendarWeekRule, culture.DateTimeFormat.FirstDayOfWeek);
+            }
+        }
+
+        /// <summary>
+        /// Returns the week number as shown in the week headers, formatted with
+        /// <see cref="System.Windows.Forms.Calendar.Calendar.WeekNumberFormat"/>.
+        /// </summary>
         public string ToStringWeekNumber()
         {
-            System.Globalization.CultureInfo CUI = System.Globalization.CultureInfo.CurrentCulture;
-            int iWeekNumber = CUI.Calendar.GetWeekOfYear(StartDate, CUI.DateTimeFormat.CalendarWeekRule, CUI.DateTimeFormat.FirstDayOfWeek);
+            string format = Calendar.WeekNumberFormat;
 
-            if (CUI.TwoLetterISOLanguageName == "de")
-                return "KW " + iWeekNumber.ToString();
-            else
-                return "Week " + iWeekNumber.ToString();
+            if (string.IsNullOrEmpty(format))
+            {
+                // Previous behaviour when no format is set.
+                format = System.Globalization.CultureInfo.CurrentCulture.TwoLetterISOLanguageName == "de" ? "KW {0}" : "Week {0}";
+            }
+
+            return string.Format(format, WeekNumber);
         }
 
         /// <summary>
