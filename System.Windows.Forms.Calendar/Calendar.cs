@@ -383,6 +383,7 @@ namespace System.Windows.Forms.Calendar
         /// Gets or sets the time ranges that should be highlighted as work-time.
         /// This ranges are week based.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public CalendarHighlightRange[] HighlightRanges
         {
             get { return _highlightRanges; }
@@ -530,6 +531,7 @@ namespace System.Windows.Forms.Calendar
         /// <summary>
         /// Gets the TextBox of the edit mode
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         internal CalendarTextBox TextBox
         {
             get { return _textBox; }

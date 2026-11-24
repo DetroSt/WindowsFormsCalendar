@@ -244,6 +244,7 @@ namespace System.Windows.Forms.Calendar
         /// <summary>
         /// Gets or sets the internal padding of items (Days, day names, month names)
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Padding ItemPadding
         {
             get { return _itemPadding; }
@@ -390,6 +391,7 @@ namespace System.Windows.Forms.Calendar
 
         #region Color Properties
         
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color ArrowsSelectedColor
         {
             get { return _arrowsSelectedColor; }
@@ -397,6 +399,7 @@ namespace System.Windows.Forms.Calendar
         }
 
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color ArrowsColor
         {
             get { return _arrowsColor; }
@@ -404,6 +407,7 @@ namespace System.Windows.Forms.Calendar
         }
 
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color DaySelectedTextColor
         {
             get { return _daySelectedTextColor; }
@@ -411,6 +415,7 @@ namespace System.Windows.Forms.Calendar
         }
 
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color DaySelectedColor
         {
             get { return _dayTextColor; }
@@ -418,12 +423,14 @@ namespace System.Windows.Forms.Calendar
         }
 
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color DaySelectedBackgroundColor
         {
             get { return _daySelectedBackgroundColor; }
             set { _daySelectedBackgroundColor = value; }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color DayBackgroundColor
         {
             get { return _dayBackgroundColor; }
@@ -431,24 +438,28 @@ namespace System.Windows.Forms.Calendar
         }
 
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color DayGrayedText
         {
             get { return _dayGrayedText; }
             set { _dayGrayedText = value; }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color MonthTitleColor
         {
             get { return _monthTitleColor; }
             set { _monthTitleColor = value; }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color MonthTitleTextColorInactive
         {
             get { return _monthTitleTextColorInactive; }
             set { _monthTitleTextColorInactive = value; }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color MonthTitleTextColor
         {
             get { return _monthTitleTextColor; }
@@ -456,6 +467,7 @@ namespace System.Windows.Forms.Calendar
         }
 
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color MonthTitleColorInactive
         {
             get { return _monthTitleColorInactive; }
@@ -465,6 +477,7 @@ namespace System.Windows.Forms.Calendar
         /// <summary>
         /// Gets or sets the color of the today day border color
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color TodayBorderColor
         {
             get { return _todayBorderColor; }
