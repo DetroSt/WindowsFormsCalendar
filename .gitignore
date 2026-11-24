@@ -3,6 +3,7 @@
 ################################################################################
 
 /.vs
+*.user
 /CalendarDemo/obj
 /CalendarDemo/bin
 /System.Windows.Forms.Calendar/obj
