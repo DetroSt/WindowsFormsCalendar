@@ -45,7 +45,7 @@ namespace System.Windows.Forms.Calendar
 
                 if (i < 7)
                 {
-                    DayHeaders[i] = curDate.ToString(MonthView.DayNamesFormat).Substring(0, MonthView.DayNamesLength);
+                    DayHeaders[i] = MonthView.GetDayName(curDate);
                 }
 
                 curDate = curDate.AddDays(1);

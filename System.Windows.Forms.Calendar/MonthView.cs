@@ -153,7 +153,14 @@ namespace System.Windows.Forms.Calendar
         public string DayNamesFormat
         {
             get { return _dayNamesFormat; }
-            set { _dayNamesFormat = value; }
+            set
+            {
+                _dayNamesFormat = value;
+                // Day names affect both the month size and the headers of each month grid.
+                UpdateMonthSize();
+                UpdateMonths();
+                Invalidate();
+            }
         }
 
         /// <summary>
@@ -167,13 +174,36 @@ namespace System.Windows.Forms.Calendar
         }
 
         /// <summary>
-        /// Gets or sets how many characters of day names should be displayed
+        /// Gets or sets how many characters of day names should be displayed.
+        /// Names shorter than this are shown in full.
         /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
         [DefaultValue(2)]
         public int DayNamesLength
         {
             get { return _dayNamesLength; }
-            set { _dayNamesLength = value; UpdateMonths(); }
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException("value", value, "DayNamesLength can't be negative");
+
+                _dayNamesLength = value;
+                UpdateMonthSize();
+                UpdateMonths();
+                Invalidate();
+            }
+        }
+
+        /// <summary>
+        /// Returns the name of the day of <paramref name="date"/> as shown in the headers:
+        /// formatted with <see cref="DayNamesFormat"/> and cut to <see cref="DayNamesLength"/> characters.
+        /// </summary>
+        internal string GetDayName(DateTime date)
+        {
+            string name = date.ToString(DayNamesFormat);
+
+            // Some names are shorter than DayNamesLength (e.g. Polish "wt." with length 4).
+            return name.Length > DayNamesLength ? name.Substring(0, DayNamesLength) : name;
         }
 
         /// <summary>
@@ -646,7 +676,7 @@ namespace System.Windows.Forms.Calendar
 
             for (int i = 0; i < 7; i++)
             {
-                strs[i] = ViewStart.AddDays(i).ToString(DayNamesFormat).Substring(0, DayNamesLength);
+                strs[i] = GetDayName(ViewStart.AddDays(i));
             }
 
             for (int i = 7; i < strs.Length; i++)

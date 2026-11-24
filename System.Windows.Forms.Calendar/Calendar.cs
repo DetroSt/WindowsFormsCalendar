@@ -1143,26 +1143,19 @@ namespace System.Windows.Forms.Calendar
         /// </summary>
         private void ClearSelectedItems()
         {
-            Rectangle r = Rectangle.Empty;
-
             foreach (CalendarItem item in Items)
             {
-                if (item.Selected)
-                {
-                    if (r.IsEmpty)
-                    {
-                        r = item.Bounds;
-                    }
-                    else
-                    {
-                        r = Rectangle.Union(r, item.Bounds);
-                    }
-                }
+                bool wasSelected = item.Selected;
 
                 item.SetSelected(false);
-            }
 
-            Invalidate(r);
+                // Invalidate(CalendarItem) covers all of the item's rectangles (an item spanning
+                // several weeks has one per week) plus its shadow, not just the first one.
+                if (wasSelected)
+                {
+                    Invalidate(item);
+                }
+            }
         }
 
         /// <summary>
