@@ -205,6 +205,7 @@ namespace System.Windows.Forms.Calendar
         private string _itemsDateFormat;
         private string _itemsTimeFormat;
         private string _weekNumberFormat;
+        private bool _itemsLayoutPending;
         private int _maximumFullDays;
         private int _maximumViewDays;
         private CalendarRenderer _renderer;
@@ -253,7 +254,6 @@ namespace System.Windows.Forms.Calendar
             
 
             _itemsDateFormat = "dd/MMM";
-            _itemsTimeFormat = "hh:mm tt";
             _allowItemEdit = true;
             _allowNew = true;
             _allowItemResize = true;
@@ -435,13 +435,54 @@ namespace System.Windows.Forms.Calendar
         }
 
         /// <summary>
-        /// Gets or sets the format in which time is shown in the items, when applicable
+        /// Gets or sets the format in which time is shown in the items, when applicable.
+        /// When empty (the default), the current culture's short time pattern is used,
+        /// e.g. "15:00" in pl-PL and "3:00 PM" in en-US.
         /// </summary>
-        [DefaultValue("hh:mm tt")]
+        [DefaultValue(null)]
         public string ItemsTimeFormat
         {
             get { return _itemsTimeFormat; }
             set { _itemsTimeFormat = value; Invalidate(); }
+        }
+
+        /// <summary>
+        /// The format actually used for times on items: <see cref="ItemsTimeFormat"/>, or the
+        /// culture's short time pattern ("t") when it is empty.
+        /// </summary>
+        internal string EffectiveItemsTimeFormat
+        {
+            get { return string.IsNullOrEmpty(_itemsTimeFormat) ? "t" : _itemsTimeFormat; }
+        }
+
+        /// <summary>
+        /// Notes that the dates of an item changed, so the items must be laid out again. The layout
+        /// is done once, before the next paint or the next time item positions are needed (see
+        /// <see cref="EnsureItemsLayout"/>), so changing many items costs one layout, not one per change.
+        /// </summary>
+        internal void RequestItemsLayout()
+        {
+            _itemsLayoutPending = true;
+            Invalidate();
+        }
+
+        /// <summary>
+        /// Lays the items out if <see cref="RequestItemsLayout"/> was called since the last layout.
+        /// </summary>
+        internal void EnsureItemsLayout()
+        {
+            if (_itemsLayoutPending && Days != null && Renderer != null)
+            {
+                Renderer.PerformItemsLayout();
+            }
+        }
+
+        /// <summary>
+        /// Called by <see cref="CalendarRenderer.PerformItemsLayout"/>: any layout brings all items up to date.
+        /// </summary>
+        internal void ItemsLayoutDone()
+        {
+            _itemsLayoutPending = false;
         }
 
         /// <summary>
@@ -1192,6 +1233,9 @@ namespace System.Windows.Forms.Calendar
         /// <returns></returns>
         public ICalendarSelectableElement HitTest(Point p, bool ignoreItems)
         {
+            // Positions must be current, also the day top height used below.
+            EnsureItemsLayout();
+
             if(!ignoreItems)
                 foreach (CalendarItem item in Items)
                 {
@@ -2282,6 +2326,9 @@ namespace System.Windows.Forms.Calendar
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+
+            // Items whose dates were changed from code since the last layout.
+            EnsureItemsLayout();
 
             CalendarRendererEventArgs evt = new CalendarRendererEventArgs(this, e.Graphics, e.ClipRectangle);
 

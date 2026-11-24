@@ -113,8 +113,21 @@ namespace System.Windows.Forms.Calendar
         /// </remarks>
         public virtual Rectangle[] AditionalBounds
         {
-            get { return _additionalBounds; }
+            get { Calendar.EnsureItemsLayout(); return _additionalBounds; }
             set { _additionalBounds = value; }
+        }
+
+        /// <summary>
+        /// Gets the bounds of the item. If the dates of an item were changed since the last layout,
+        /// the items are laid out first, so the value is always current.
+        /// </summary>
+        public override Rectangle Bounds
+        {
+            get
+            {
+                Calendar.EnsureItemsLayout();
+                return base.Bounds;
+            }
         }
 
         /// <summary>
@@ -231,11 +244,14 @@ namespace System.Windows.Forms.Calendar
 
         {
             get { return _endDate; }
-            set 
+            set
             {
                 _endDate = value;
                 _duration = new TimeSpan(0, 0, 0);
                 ClearPassings();
+
+                // The item moves on screen without the application calling PerformItemsLayout.
+                Calendar.RequestItemsLayout();
             }
         }
 
@@ -256,7 +272,7 @@ namespace System.Windows.Forms.Calendar
 
                 if (ShowEndTime && !EndDate.TimeOfDay.Equals(new TimeSpan(23, 59, 59)))
                 {
-                    time = EndDate.ToString(Calendar.ItemsTimeFormat);
+                    time = EndDate.ToString(Calendar.EffectiveItemsTimeFormat);
                 }
 
                 return string.Format("{0} {1}", date, time).Trim();
@@ -494,7 +510,7 @@ namespace System.Windows.Forms.Calendar
 
                 if (ShowStartTime && !StartDate.TimeOfDay.Equals(new TimeSpan(0, 0, 0)))
                 {
-                    time = StartDate.ToString(Calendar.ItemsTimeFormat);
+                    time = StartDate.ToString(Calendar.EffectiveItemsTimeFormat);
                 }
 
                 return string.Format("{0} {1}", date, time).Trim();
@@ -507,11 +523,14 @@ namespace System.Windows.Forms.Calendar
         public virtual DateTime StartDate
         {
             get { return _startDate; }
-            set 
-            { 
+            set
+            {
                 _startDate = value;
                 _duration = new TimeSpan(0, 0, 0);
                 ClearPassings();
+
+                // The item moves on screen without the application calling PerformItemsLayout.
+                Calendar.RequestItemsLayout();
             }
         }
 

@@ -23,8 +23,8 @@ dotnet test System.Windows.Forms.Calendar.sln
 
 ## Usage notes
 
-- **Changing an item's dates from code** (`StartDate`, `EndDate`) does not move it on screen by itself. Call `calendar.Renderer.PerformItemsLayout()` and `calendar.Invalidate()` afterwards. Adding, removing or replacing items through `calendar.Items` (including `IList` / `ICollection` access) updates the layout automatically.
-- **Time scale** labels follow the current culture: 00-23 for cultures with a 24-hour clock, 12, 01-11 with AM/PM otherwise. The time shown on items is set separately by `ItemsTimeFormat` (default `hh:mm tt`).
+- **Changing an item's dates from code** (`StartDate`, `EndDate`) moves it on screen automatically. The items are laid out once, before the next paint or when item positions are read (`Bounds`, `HitTest`), so changing many items costs a single layout. Adding, removing or replacing items through `calendar.Items` (including `IList` / `ICollection` access) also updates the layout. Calling `calendar.Renderer.PerformItemsLayout()` is no longer needed, but still works.
+- **Times** follow the current culture: the time scale shows 00-23 for cultures with a 24-hour clock and 12, 01-11 with AM/PM otherwise, and items use the culture's short time pattern (e.g. `15:00` in pl-PL, `3:00 PM` in en-US) unless `ItemsTimeFormat` is set (e.g. to `hh:mm tt`, the previous default).
 - **Week headers** in the month view use `WeekNumberFormat` (e.g. `"Tydz. {0}"`); without it they show `KW {0}` for German and `Week {0}` otherwise. Week numbers follow the current culture's rules.
 - **Selection**: `SelectionStart` / `SelectionEnd` return the selected range and select the time units (or, in the month view, the days) containing the given dates.
 

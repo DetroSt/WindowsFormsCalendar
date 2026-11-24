@@ -693,6 +693,9 @@ namespace System.Windows.Forms.Calendar
         {
             if (Calendar.Days == null) return;
 
+            // Cleared first: reading item bounds during the layout must not start another one.
+            Calendar.ItemsLayoutDone();
+
             if (Calendar.Items.Count == 0)
             {
                 // Nothing to place, but a day top enlarged for items removed meanwhile must shrink back.
