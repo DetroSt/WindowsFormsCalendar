@@ -53,7 +53,9 @@ namespace CalendarDemo
                 {
                     CalendarItem cal = new CalendarItem(calendar1, item.StartTime, item.EndTime, item.Text);
 
-                    if (!(item.R == 0 && item.G == 0 && item.B == 0))
+                    // An item without a color is saved as Color.Empty (A = 0). Checking R, G and B
+                    // instead would also skip black (A = 255, R = G = B = 0).
+                    if (item.A != 0)
                     {
                         cal.ApplyColor(Color.FromArgb(item.A, item.R, item.G, item.B));
                     }
