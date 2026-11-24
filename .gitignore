@@ -5,6 +5,7 @@
 /.vs
 /CalendarDemo/obj
 /System.Windows.Forms.Calendar/obj
+/System.Windows.Forms.Calendar/bin
 /CalendarDemo/bin/Debug/CalendarDemo.exe
 /CalendarDemo/bin/Debug/CalendarDemo.exe.config
 /CalendarDemo/bin/Debug/CalendarDemo.pdb
