@@ -521,7 +521,9 @@ namespace System.Windows.Forms.Calendar
 
                 if (Created)
                 {
-                    value.OnInitialize(new CalendarRendererEventArgs(null, null, Rectangle.Empty));
+                    // The renderer needs the calendar here (CalendarProfessionalRenderer sets its font),
+                    // the same as in OnCreateControl; it used to get null and throw.
+                    value.OnInitialize(new CalendarRendererEventArgs(this, null, Rectangle.Empty));
                 }
 
                 // The new renderer has computed no layout yet (e.g. the time scale bounds are empty).

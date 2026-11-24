@@ -1426,6 +1426,11 @@ namespace System.Windows.Forms.Calendar
             int minuteWidth = hourWidth;
             int k = 0;
 
+            // Follow the culture's clock: 12-hour (12, 01 ... 11 with AM/PM) when its short time
+            // pattern uses "h", 24-hour (00 ... 23, no AM/PM) otherwise. Previously only hour 0
+            // became "12" and AM/PM was added, so the afternoon showed 12 PM, 13, 14 ...
+            bool twelveHour = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.ShortTimePattern.Contains("h");
+
             using (Font hourFont = new Font(e.Calendar.Font.FontFamily, e.Calendar.Font.Size * (e.Calendar.TimeScale == CalendarTimeScale.SixtyMinutes ? 1f : 1.5f)))
             {
                 for (int i = 0; i < e.Calendar.Days[0].TimeUnits.Length; i++)
@@ -1434,20 +1439,22 @@ namespace System.Windows.Forms.Calendar
 
                     if (!unit.Visible) continue;
 
-                    string hours = unit.Hours.ToString("00");
+                    int shownHour = twelveHour ? (unit.Hours % 12 == 0 ? 12 : unit.Hours % 12) : unit.Hours;
+                    string hours = shownHour.ToString("00");
                     string minutes = unit.Minutes == 0 ? "00" : string.Empty;
 
                     if (!string.IsNullOrEmpty(minutes))
                     {
-                        if (hours == "00") hours = "12";
-
                         CalendarRendererBoxEventArgs hevt = new CalendarRendererBoxEventArgs(e, new Rectangle(hourLeft, unit.Bounds.Top, hourWidth, unit.Bounds.Height), hours, TextFormatFlags.Right);
 
                         hevt.Font = hourFont;
 
                         OnDrawTimeScaleHour(hevt);
 
-                        if (k++ == 0 || unit.Hours == 0 || unit.Hours == 12 ) minutes = unit.Date.ToString("tt");
+                        if (k++ == 0 || unit.Hours == 0 || unit.Hours == 12)
+                        {
+                            if (twelveHour) minutes = unit.Date.ToString("tt");
+                        }
 
                         CalendarRendererBoxEventArgs mevt = new CalendarRendererBoxEventArgs(e, new Rectangle(minuteLeft, unit.Bounds.Top, minuteWidth, unit.Bounds.Height), minutes, TextFormatFlags.Top | TextFormatFlags.Left);
 

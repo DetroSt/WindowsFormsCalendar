@@ -112,7 +112,14 @@ namespace System.Windows.Forms.Calendar
         {
             base.OnInitialize(e);
 
-            e.Calendar.Font = SystemFonts.CaptionFont;
+            // Only when the application has not chosen a font for the calendar (e.g. in the designer);
+            // a font set on the calendar itself is serialized, an inherited one is not.
+            System.ComponentModel.PropertyDescriptor font = System.ComponentModel.TypeDescriptor.GetProperties(e.Calendar)["Font"];
+
+            if (font == null || !font.ShouldSerializeValue(e.Calendar))
+            {
+                e.Calendar.Font = SystemFonts.CaptionFont;
+            }
         }
 
         public override void OnDrawDayHeaderBackground(CalendarRendererDayEventArgs e)
