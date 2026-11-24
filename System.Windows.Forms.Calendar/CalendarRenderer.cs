@@ -1016,7 +1016,7 @@ namespace System.Windows.Forms.Calendar
             {
                 #region Short mode algorithm
 
-                Calendar.Items.Reverse();
+                Calendar.Items.ReverseWithoutLayout(); // inside the layout: Reverse() would start another layout
 
                 for (int i = 0; i < Calendar.Days.Length; i++)
                 {
@@ -1111,7 +1111,7 @@ namespace System.Windows.Forms.Calendar
                     if (!item.Bounds.IsEmpty)
                         item.FirstAndLastRectangleGapping();
 
-                Calendar.Items.Reverse();
+                Calendar.Items.ReverseWithoutLayout();
 
                 #endregion
             }
