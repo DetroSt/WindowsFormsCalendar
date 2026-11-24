@@ -584,8 +584,10 @@ namespace System.Windows.Forms.Calendar
         public DateTime ViewEnd
         {
             get { return _viewEnd; }
-            set 
+            set
             {
+                ValidateViewRange(_viewStart, value, "value");
+
                 _viewEnd = value.Date.Add(new TimeSpan(23, 59, 59));
                 ClearItems();
                 UpdateDaysAndWeeks();
@@ -602,7 +604,9 @@ namespace System.Windows.Forms.Calendar
         public DateTime ViewStart
         {
             get { return _viewStart; }
-            set { 
+            set {
+                ValidateViewRange(value, _viewEnd, "value");
+
                 _viewStart = value.Date;
                 ClearItems();
                 UpdateDaysAndWeeks();
@@ -1051,10 +1055,31 @@ namespace System.Windows.Forms.Calendar
         /// </summary>
         /// <param name="dateStart">Start date of view</param>
         /// <param name="dateEnd">End date of view</param>
+        /// <exception cref="ArgumentOutOfRangeException">The range is shorter than 1 day or longer than <see cref="MaximumViewDays"/>; the current view is left unchanged.</exception>
         public void SetViewRange(DateTime dateStart, DateTime dateEnd)
         {
+            // Validate before touching _viewStart, so an invalid range leaves the current view as it was.
+            ValidateViewRange(dateStart, dateEnd, "dateEnd");
+
             _viewStart = dateStart.Date;
             ViewEnd = dateEnd;
+        }
+
+        /// <summary>
+        /// Throws if the view range from <paramref name="start"/> to <paramref name="end"/> (whole days)
+        /// is shorter than 1 day or longer than <see cref="MaximumViewDays"/>.
+        /// Called before the range is stored, so an invalid value never reaches the calendar's state.
+        /// </summary>
+        private void ValidateViewRange(DateTime start, DateTime end, string paramName)
+        {
+            int days = (end.Date - start.Date).Days + 1;
+
+            if (days < 1 || days > MaximumViewDays)
+            {
+                throw new ArgumentOutOfRangeException(paramName, days,
+                    string.Format("Days between ViewStart ({0:d}) and ViewEnd ({1:d}) should be between 1 and MaximumViewDays ({2})",
+                        start, end, MaximumViewDays));
+            }
         }
 
         /// <summary>
@@ -1337,13 +1362,9 @@ namespace System.Windows.Forms.Calendar
             int preDays = 0;
             span = span.Add(new TimeSpan(0,0,0,1,0));
 
-            if (span.Days < 1 || span.Days > MaximumViewDays)
-            {
-                // Reached from the ViewStart / ViewEnd setters and SetViewRange, so the cause is the new range.
-                throw new ArgumentOutOfRangeException("value", span.Days,
-                    string.Format("Days between ViewStart ({0:d}) and ViewEnd ({1:d}) should be between 1 and MaximumViewDays ({2})",
-                        ViewStart, ViewEnd, MaximumViewDays));
-            }
+            // The setters and SetViewRange already validate the range before storing it
+            // (ValidateViewRange); this is only a safety net.
+            ValidateViewRange(ViewStart, ViewEnd, "value");
 
             if (span.Days > MaximumFullDays)
             {
