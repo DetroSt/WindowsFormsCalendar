@@ -95,6 +95,24 @@ namespace System.Windows.Forms.Calendar.Tests
         }
 
         [TestMethod]
+        public void NonGenericIList_ValueOfWrongType_ThrowsSameExceptionAsList()
+        {
+            Cal.Items.Add(Timed(10, 11, "x"));
+            var list = (IList)Cal.Items;
+            var plainList = (IList)new List<CalendarItem> { Timed(10, 11, "y") };
+
+            // The same exception type as List<T> throws, so callers that catch it keep working.
+            Assert.ThrowsExactly<ArgumentException>(() => plainList.Add("text"), "Test setup: List<T> behaviour");
+            Assert.ThrowsExactly<ArgumentException>(() => list.Add("text"), "Add");
+            Assert.ThrowsExactly<ArgumentException>(() => list.Insert(0, "text"), "Insert");
+            Assert.ThrowsExactly<ArgumentException>(() => list[0] = "text", "Indexer");
+            Assert.AreEqual(1, Cal.Items.Count, "The collection changed.");
+
+            list.Remove("text"); // ignored, like in List<T>
+            Assert.AreEqual(1, Cal.Items.Count);
+        }
+
+        [TestMethod]
         public void RemoveThroughInterfaces_GivesNeighbourFullWidthAgain()
         {
             foreach (string way in new[] { "ICollection<T>", "IList" })

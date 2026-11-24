@@ -230,18 +230,18 @@ namespace System.Windows.Forms.Calendar
         object IList.this[int index]
         {
             get { return this[index]; }
-            set { this[index] = (CalendarItem)value; }
+            set { this[index] = ToItem(value); }
         }
 
         int IList.Add(object value)
         {
-            Add((CalendarItem)value);
+            Add(ToItem(value));
             return Count - 1;
         }
 
         void IList.Insert(int index, object value)
         {
-            Insert(index, (CalendarItem)value);
+            Insert(index, ToItem(value));
         }
 
         void IList.Remove(object value)
@@ -250,6 +250,20 @@ namespace System.Windows.Forms.Calendar
 
             if (item != null)
                 Remove(item);
+        }
+
+        /// <summary>
+        /// Converts a value passed through <see cref="IList"/> to an item. Like <see cref="List{T}"/>,
+        /// accepts <c>null</c> and throws <see cref="ArgumentException"/> for a value of another type.
+        /// </summary>
+        private static CalendarItem ToItem(object value)
+        {
+            if (value == null || value is CalendarItem)
+                return (CalendarItem)value;
+
+            throw new ArgumentException(
+                $"The value \"{value}\" is not of type \"{typeof(CalendarItem)}\" and cannot be used in this generic collection.",
+                nameof(value));
         }
 
         #endregion
