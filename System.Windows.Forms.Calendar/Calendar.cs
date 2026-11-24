@@ -663,24 +663,29 @@ namespace System.Windows.Forms.Calendar
 
 
         /// <summary>
-        /// Scrolls the view to the given time.
+        /// Scrolls the view so the given time of day is at the top, regardless of the current scroll position.
+        /// Near the end of the day the view stops at the last time unit, as with manual scrolling.
         /// </summary>
-        /// <param name="num"></param>
+        /// <param name="num">Time of day in hours, e.g. 6.5 for 6:30 AM or 16.75 for 4:45 PM.</param>
         public void ScrollToTime(Single num)
         {
-            bool forward = false;
-            int offset = (int)(60 / (int)_timeScale * num); //- m_VScrollBar.Value;
-            if (offset > 0)
-                forward = true;
-            else
-                offset *= -1;
-            for (int i = 0; i < offset; i++)
+            if (Days == null || Days.Length == 0 || Days[0].TimeUnits == null) return;
+
+            // Same rounding as before: whole time units, counted from midnight.
+            int unitsFromMidnight = (int)(60 / (int)_timeScale * num);
+
+            // Same limits as ScrollTimeUnits: not above midnight, and not past the point
+            // where the last time unit reaches the bottom of the view.
+            int units = Days[0].TimeUnits.Length;
+            int visible = Math.Max(1, Renderer.GetVisibleTimeUnits());
+            int maxUnitsFromMidnight = Math.Max(0, units - visible);
+
+            unitsFromMidnight = Math.Max(0, Math.Min(unitsFromMidnight, maxUnitsFromMidnight));
+
+            if (TimeUnitsOffset != -unitsFromMidnight)
             {
-                ScrollTimeUnits((forward) ? -1 : 1);
+                TimeUnitsOffset = -unitsFromMidnight;
             }
-            //Usage
-            //YourCalendar.ScrollToTime(6.5); // will scroll to 6:30 AM
-            //YourCalendar.ScrollToTime(16.75); // will scroll to 4:45 PM
         }
                                     
         /// <summary>
