@@ -39,13 +39,38 @@ namespace CalendarDemo
         {
             if (ItemsFile.Exists)
             {
-                List<ItemInfo> lst = new List<ItemInfo>();
+                List<ItemInfo> lst;
 
-                XmlSerializer xml = new XmlSerializer(lst.GetType());
-
-                using (Stream s = ItemsFile.OpenRead())
+                try
                 {
-                    lst = xml.Deserialize(s) as List<ItemInfo>;
+                    XmlSerializer xml = new XmlSerializer(typeof(List<ItemInfo>));
+
+                    using (Stream s = ItemsFile.OpenRead())
+                    {
+                        lst = xml.Deserialize(s) as List<ItemInfo> ?? new List<ItemInfo>();
+                    }
+                }
+                catch (Exception ex) when (ex is InvalidOperationException || ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    // XmlSerializer reports a damaged file as InvalidOperationException. Keep a copy,
+                    // because saving on close will replace items.xml with the items of this session.
+                    string backup = ItemsFile.FullName + ".bad";
+                    string kept;
+
+                    try
+                    {
+                        File.Copy(ItemsFile.FullName, backup, true);
+                        kept = "A copy was saved as " + backup + ".";
+                    }
+                    catch (Exception copyEx) when (copyEx is IOException || copyEx is UnauthorizedAccessException)
+                    {
+                        kept = "A copy could not be saved: " + copyEx.Message;
+                    }
+
+                    MessageBox.Show(this,
+                        "The items could not be loaded from " + ItemsFile.FullName + ":\n" + ex.Message + "\n\n" + kept,
+                        "Calendar Demo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
                 }
 
                 foreach (ItemInfo item in lst)
@@ -230,6 +255,18 @@ namespace CalendarDemo
                 else
                 {
                     File.Move(temp, target);
+                }
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // E.g. no write access to the program folder. The previous items.xml is unchanged.
+                DialogResult answer = MessageBox.Show(this,
+                    "The items could not be saved to " + target + ":\n" + ex.Message + "\n\nClose without saving?",
+                    "Calendar Demo", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                if (answer == DialogResult.No)
+                {
+                    e.Cancel = true;
                 }
             }
             finally

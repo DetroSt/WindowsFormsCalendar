@@ -1162,7 +1162,7 @@ namespace System.Windows.Forms.Calendar
 
         /// <summary>
         /// Orders items for first-fit placement in a layout matrix: earliest start first,
-        /// longer items first when starts are equal, original order otherwise.
+        /// longer items first when starts are equal, then by start time, original order otherwise.
         /// </summary>
         /// <remarks>
         /// With this order the first-fit placement never needs more rows (or columns) than the
@@ -1170,7 +1170,7 @@ namespace System.Windows.Forms.Calendar
         /// built by <see cref="PerformItemsLayout"/>. In any other order it may need more,
         /// and items would not fit.
         /// </remarks>
-        private static List<T> OrderForPlacement<T>(IList<T> items, Func<T, int> start, Func<T, int> end)
+        private static List<CalendarItem> OrderForPlacement(IList<CalendarItem> items, Func<CalendarItem, int> start, Func<CalendarItem, int> end)
         {
             int[] order = new int[items.Count];
 
@@ -1184,10 +1184,16 @@ namespace System.Windows.Forms.Calendar
                 c = end(items[b]).CompareTo(end(items[a]));
                 if (c != 0) return c;
 
+                // Items in the same place go in time order, so the earliest ones get the first
+                // rows: in the month view, items that don't fit in the day are the latest ones,
+                // not the ones that happen to be first in Calendar.Items.
+                c = items[a].StartDate.CompareTo(items[b].StartDate);
+                if (c != 0) return c;
+
                 return a.CompareTo(b);
             });
 
-            List<T> result = new List<T>(order.Length);
+            List<CalendarItem> result = new List<CalendarItem>(order.Length);
 
             foreach (int i in order) result.Add(items[i]);
 

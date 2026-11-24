@@ -917,6 +917,34 @@ namespace System.Windows.Forms.Calendar
         }
 
         /// <summary>
+        /// Closes the edit box without applying the text and without raising
+        /// <see cref="ItemTextEdited"/> or <see cref="ItemCreated"/>. Used when the edited item
+        /// is removed from <see cref="Items"/> (also when the view changes), so there is nothing
+        /// left to edit.
+        /// </summary>
+        internal void AbortEditMode()
+        {
+            if (!EditMode || _finalizingEdition) return;
+
+            // Cleared first, so FinalizeEditMode (called by the text box losing focus while it is
+            // removed) has nothing to finalize.
+            _editModeItem = null;
+
+            CalendarTextBox textBox = TextBox;
+            _textBox = null;
+            textBox.Visible = false;
+            Controls.Remove(textBox);
+            textBox.Dispose();
+
+            _creatingItem = false;
+
+            if (State == CalendarState.EditingItemText)
+            {
+                SetState(CalendarState.Idle);
+            }
+        }
+
+        /// <summary>
         /// Finds the <see cref="CalendarDay"/> for the specified date, if in the view.
         /// </summary>
         /// <param name="d">Date to find day</param>

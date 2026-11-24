@@ -275,6 +275,12 @@ namespace System.Windows.Forms.Calendar
         /// </summary>
         private void CollectionChanged()
         {
+            // The text box of an item that is no longer in the calendar would stay on screen.
+            if (Calendar.EditModeItem != null && !Contains(Calendar.EditModeItem))
+            {
+                Calendar.AbortEditMode();
+            }
+
             Calendar.Renderer.PerformItemsLayout();
             Calendar.Invalidate();
         }
