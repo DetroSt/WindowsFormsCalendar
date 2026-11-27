@@ -16,11 +16,17 @@ namespace System.Windows.Forms.Calendar.Tests
 
         public void TypeChar(char c) => OnKeyPress(new KeyPressEventArgs(c));
 
-        public void MouseDownAt(Point p) => OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, p.X, p.Y, 0));
+        public void MouseDownAt(Point p, MouseButtons button = MouseButtons.Left) => OnMouseDown(new MouseEventArgs(button, 1, p.X, p.Y, 0));
 
-        public void MouseMoveTo(Point p) => OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, p.X, p.Y, 0));
+        public void MouseMoveTo(Point p, MouseButtons button = MouseButtons.Left) => OnMouseMove(new MouseEventArgs(button, 0, p.X, p.Y, 0));
 
         public void MouseUpAt(Point p) => OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, p.X, p.Y, 0));
+
+        /// <summary>Mouse move with no button pressed, e.g. after the mouse-up went to another window.</summary>
+        public void HoverAt(Point p) => OnMouseMove(new MouseEventArgs(MouseButtons.None, 0, p.X, p.Y, 0));
+
+        /// <summary>The mouse capture is taken away, e.g. by a message box shown during a drag.</summary>
+        public void LoseMouseCapture() => OnMouseCaptureChanged(EventArgs.Empty);
     }
 
     /// <summary>

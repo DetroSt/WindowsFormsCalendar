@@ -165,6 +165,136 @@ namespace System.Windows.Forms.Calendar.Tests
         }
 
         [TestMethod]
+        public void DroppingItemOntoAnotherItemOfAnotherDay_WeekView_MovesItToThatTime()
+        {
+            Cal.SetViewRange(Monday, Monday.AddDays(6));
+            Cal.ScrollToTime(8);
+            CalendarItem a = Timed(10, 11, "a");
+            CalendarItem b = new CalendarItem(Cal, Monday.AddDays(2).AddHours(10), Monday.AddDays(2).AddHours(11), "b");
+            Cal.Items.Add(a);
+            Cal.Items.Add(b);
+            Point grab = Center(a.Bounds);
+            Point drop = Center(b.Bounds);
+            Cal.MouseDownAt(grab);
+            Cal.MouseMoveTo(new Point((grab.X + drop.X) / 2, grab.Y));
+            Cal.MouseMoveTo(drop);
+            Cal.MouseUpAt(drop);
+            Assert.AreEqual(Monday.AddDays(2).AddHours(10), a.StartDate);
+        }
+
+        [TestMethod]
+        public void DroppingItemOntoAnotherItemOfAnotherDay_MonthView_MovesItToThatDay()
+        {
+            Cal.MaximumFullDays = 1;
+            Cal.SetViewRange(Monday, Monday.AddDays(27));
+            CalendarItem a = Timed(10, 11, "a");
+            CalendarItem b = new CalendarItem(Cal, Monday.AddDays(2).AddHours(10), Monday.AddDays(2).AddHours(11), "b");
+            Cal.Items.Add(a);
+            Cal.Items.Add(b);
+            Point grab = Center(a.Bounds);
+            Point drop = Center(b.Bounds);
+            Cal.MouseDownAt(grab);
+            Cal.MouseMoveTo(new Point((grab.X + drop.X) / 2, grab.Y));
+            Cal.MouseMoveTo(drop);
+            Cal.MouseUpAt(drop);
+            Assert.AreEqual(Monday.AddDays(2).AddHours(10), a.StartDate);
+        }
+
+        [TestMethod]
+        public void LosingMouseCaptureAfterMouseUp_KeepsMovedItem()
+        {
+            // WinForms releases the mouse capture after OnMouseUp: that must not undo an ordinary drag.
+            CalendarItem item = AddTimedItemAndShowIt();
+            int datesChanged = 0;
+            Cal.ItemDatesChanged += (s, e) => datesChanged++;
+
+            Cal.MouseDownAt(PointAt(11));
+            Cal.MouseMoveTo(PointAt(13));
+            Cal.MouseUpAt(PointAt(13));
+            Cal.LoseMouseCapture();
+
+            Assert.AreEqual(Monday.AddHours(12), item.StartDate);
+            Assert.AreEqual(1, datesChanged);
+        }
+
+        [TestMethod]
+        public void RightClickOnItem_DoesNotStartDrag()
+        {
+            // A right-click opens the application's context menu, which takes the mouse-up: the item
+            // used to stay "dragged" and follow the mouse until the next click saved it elsewhere.
+            CalendarItem item = AddTimedItemAndShowIt();
+            bool datesChanged = false;
+            Cal.ItemDatesChanged += (s, e) => datesChanged = true;
+
+            Cal.MouseDownAt(PointAt(11), MouseButtons.Right);
+            Cal.MouseMoveTo(PointAt(15), MouseButtons.Right);
+            Cal.HoverAt(PointAt(16));
+            Cal.MouseDownAt(PointAt(16));
+            Cal.MouseUpAt(PointAt(16));
+
+            Assert.AreEqual(Monday.AddHours(10), item.StartDate);
+            Assert.IsFalse(datesChanged);
+        }
+
+        [TestMethod]
+        public void MouseMoveWithoutButton_DuringDrag_CancelsDragAndRestoresDates()
+        {
+            // The mouse-up went elsewhere (e.g. a message box appeared during the drag): moving the mouse
+            // afterwards must not keep moving the item, and a later click must not save it somewhere else.
+            CalendarItem item = AddTimedItemAndShowIt();
+            bool datesChanged = false;
+            Cal.ItemDatesChanged += (s, e) => datesChanged = true;
+            Cal.ItemsDatesChanged += (s, e) => datesChanged = true;
+
+            Cal.MouseDownAt(PointAt(11));
+            Cal.MouseMoveTo(PointAt(12));
+            Cal.HoverAt(PointAt(15));
+            Cal.MouseDownAt(PointAt(15));
+            Cal.MouseUpAt(PointAt(15));
+
+            Assert.AreEqual(Monday.AddHours(10), item.StartDate);
+            Assert.AreEqual(Monday.AddHours(12), item.EndDate);
+            Assert.IsFalse(item.IsDragging);
+            Assert.IsFalse(datesChanged, "The cancelled drag was reported as a date change.");
+        }
+
+        [TestMethod]
+        public void LosingMouseCapture_DuringDrag_CancelsDragAndRestoresDates()
+        {
+            CalendarItem grabbed = AddTwoSelectedTimedItems(out CalendarItem other);
+            bool datesChanged = false;
+            Cal.ItemsDatesChanged += (s, e) => datesChanged = true;
+
+            Cal.MouseDownAt(PointAt(11));
+            Cal.MouseMoveTo(PointAt(13));
+            Cal.LoseMouseCapture();
+            Cal.MouseUpAt(PointAt(13));
+
+            Assert.AreEqual(Monday.AddHours(10), grabbed.StartDate);
+            Assert.AreEqual(Monday.AddHours(14), other.StartDate);
+            Assert.AreEqual(Monday.AddHours(15), other.EndDate);
+            Assert.IsFalse(datesChanged);
+        }
+
+        [TestMethod]
+        public void Escape_DuringDrag_CancelsDragAndRestoresDates()
+        {
+            CalendarItem item = AddTimedItemAndShowIt();
+            bool datesChanged = false;
+            Cal.ItemDatesChanged += (s, e) => datesChanged = true;
+
+            Cal.MouseDownAt(PointAt(11));
+            Cal.MouseMoveTo(PointAt(13));
+            Cal.PressKey(Keys.Escape);
+            Cal.MouseMoveTo(PointAt(14));
+            Cal.MouseUpAt(PointAt(14));
+
+            Assert.AreEqual(Monday.AddHours(10), item.StartDate);
+            Assert.IsFalse(datesChanged);
+            Assert.AreEqual(1, Cal.Items.Count, "Escape must not delete or create items.");
+        }
+
+        [TestMethod]
         public void DraggingSelectedItems_WithALockedOneSelected_MovesNothing()
         {
             CalendarItem grabbed = AddTwoSelectedTimedItems(out CalendarItem other);

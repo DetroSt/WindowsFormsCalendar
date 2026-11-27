@@ -244,6 +244,8 @@ namespace System.Windows.Forms.Calendar
         // A click without Shift on an item that is already selected keeps the selection, so the whole
         // group can be dragged; if the mouse is released without moving, only the clicked item stays selected.
         private bool _narrowSelectionOnMouseUp;
+        // Start and end dates of the moved or resized items from the mouse-down, to cancel the operation.
+        private readonly List<KeyValuePair<CalendarItem, DateTime[]>> _originalDates = new List<KeyValuePair<CalendarItem, DateTime[]>>();
         #endregion
 
         #region Ctor
@@ -1562,6 +1564,50 @@ namespace System.Windows.Forms.Calendar
         }
 
         /// <summary>
+        /// Remembers the dates of the items being moved or resized, so the operation can be cancelled.
+        /// </summary>
+        private void RememberOriginalDates(IEnumerable<CalendarItem> items)
+        {
+            _originalDates.Clear();
+
+            foreach (CalendarItem item in items)
+                _originalDates.Add(new KeyValuePair<CalendarItem, DateTime[]>(item, new[] { item.StartDate, item.EndDate }));
+        }
+
+        /// <summary>
+        /// Cancels moving or resizing items: their dates go back to what they were before the mouse-down
+        /// and no date change is reported.
+        /// </summary>
+        private void CancelItemOperation()
+        {
+            foreach (KeyValuePair<CalendarItem, DateTime[]> original in _originalDates)
+            {
+                CalendarItem item = original.Key;
+                item.StartDate = original.Value[0];
+                item.EndDate = original.Value[1];
+                item.SetIsDragging(false);
+                item.SetIsResizingStartDate(false);
+                item.SetIsResizingEndDate(false);
+            }
+
+            if (itemOnState != null)
+            {
+                itemOnState.SetIsDragging(false);
+                itemOnState.SetIsResizingStartDate(false);
+                itemOnState.SetIsResizingEndDate(false);
+            }
+
+            _originalDates.Clear();
+            _draggedItems.Clear();
+            _narrowSelectionOnMouseUp = false;
+            itemOnState = null;
+            itemOnStateChanged = false;
+            SetState(CalendarState.Idle);
+            Renderer.PerformItemsLayout();
+            Invalidate();
+        }
+
+        /// <summary>
         /// Deletes the currently selected item
         /// </summary>
         private void DeleteSelectedItems()
@@ -2046,7 +2092,14 @@ namespace System.Windows.Forms.Calendar
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
-            
+
+            if (e.KeyCode == Keys.Escape && (State == CalendarState.DraggingItem || State == CalendarState.ResizingItem))
+            {
+                CancelItemOperation();
+                e.Handled = true;
+                return;
+            }
+
             bool shiftPressed = (ModifierKeys & Keys.Shift) == Keys.Shift;
             int jump = (int)TimeScale;
             ICalendarSelectableElement sStart = null;
@@ -2207,7 +2260,9 @@ namespace System.Windows.Forms.Calendar
                         itemOnState = hittedItem;
                         itemOnStateChanged = false;
 
-                        if (!hittedItem.Locked && AllowItemEdit)
+                        // Only the left button moves or resizes items. A right-click opens the application's
+                        // context menu, which takes the mouse-up, so the item stayed "dragged" afterwards.
+                        if (!hittedItem.Locked && AllowItemEdit && e.Button == MouseButtons.Left)
                         {
                             ////<----- Add the following code to initialize draggingOffsetInMinutes<br />
                             ICalendarSelectableElement clickedTimeUnit = HitTest(e.Location, true);
@@ -2231,6 +2286,11 @@ namespace System.Windows.Forms.Calendar
                             {
                                 SetState(CalendarState.DraggingItem);
                             }
+
+                            if (State == CalendarState.DraggingItem)
+                                RememberOriginalDates(_draggedItems);
+                            else if (State == CalendarState.ResizingItem)
+                                RememberOriginalDates(new[] { itemOnState });
                         }
 
                         SetSelectionRange(null, null);
@@ -2277,6 +2337,17 @@ namespace System.Windows.Forms.Calendar
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
+
+            // A move without the left button while moving or resizing items means the mouse-up was not
+            // received (e.g. it went to a message box shown during the drag). Without this the items kept
+            // following the mouse and the next click saved them wherever the mouse was, also in another week.
+            if ((e.Button & MouseButtons.Left) == 0)
+            {
+                if (State == CalendarState.DraggingItem || State == CalendarState.ResizingItem)
+                    CancelItemOperation();
+                else if (State == CalendarState.DraggingTimeSelection)
+                    SetState(CalendarState.Idle);
+            }
 
             UpdateHolidayToolTip(e.Location);
 
@@ -2454,6 +2525,7 @@ namespace System.Windows.Forms.Calendar
                 }
             }
             _draggedItems.Clear();
+            _originalDates.Clear();
 
             if (itemOnState != null)
             {
@@ -2473,6 +2545,16 @@ namespace System.Windows.Forms.Calendar
             }
             _narrowSelectionOnMouseUp = false;
             SetState(CalendarState.Idle);
+        }
+
+        protected override void OnMouseCaptureChanged(EventArgs e)
+        {
+            base.OnMouseCaptureChanged(e);
+
+            // The capture is released after OnMouseUp, so a drag still in progress here lost its mouse-up
+            // (another window, e.g. a message box, took the mouse).
+            if (!Capture && (State == CalendarState.DraggingItem || State == CalendarState.ResizingItem))
+                CancelItemOperation();
         }
 
         protected override void OnMouseWheel(MouseEventArgs e)
