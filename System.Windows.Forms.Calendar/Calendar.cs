@@ -987,9 +987,9 @@ namespace System.Windows.Forms.Calendar
                 Invalidate(hittedItem);
                 OnItemSelected(new CalendarItemEventArgs(hittedItem));
 
-                itemOnState = hittedItem;
-                itemOnStateChanged = false;
-
+                // Selecting from code does not touch the item of a mouse operation (itemOnState): an
+                // application reselecting its rebuilt items during a drag replaced the dragged item, and
+                // the item then drifted to a random date.
                 SetSelectionRange(null, null);
             }
             else
@@ -2391,6 +2391,10 @@ namespace System.Windows.Forms.Calendar
                     //    break;
                     case CalendarState.DraggingItem:
 
+                        // The shift is measured on the grabbed item itself (the first dragged item), which
+                        // moves with the mouse; measuring it on another item made it add up on every move.
+                        CalendarItem grabbed = _draggedItems.Count > 0 ? _draggedItems[0] : itemOnState;
+
                         // Keep the item where it was grabbed relative to the mouse: without the offset
                         // the item's start jumped to the element under the mouse on the first move.
                         DateTime target = hitted.Date.AddMinutes(draggingOffsetInMinutes);
@@ -2399,16 +2403,16 @@ namespace System.Windows.Forms.Calendar
                         if ((this.DaysMode == CalendarDaysMode.Short) || (hitted is CalendarDayTop))
                         {
                             // Moving between days keeps the time of day.
-                            newStart = target.Date.Add(itemOnState.StartDate.TimeOfDay);
+                            newStart = target.Date.Add(grabbed.StartDate.TimeOfDay);
                         }
                         else
                             newStart = target;
 
-                        if (newStart != itemOnState.StartDate)
+                        if (newStart != grabbed.StartDate)
                         {
                             // The other selected items move by the same amount, so the group keeps its shape
                             // (by whole days when moving between days, keeping each item's time of day).
-                            TimeSpan delta = newStart - itemOnState.StartDate;
+                            TimeSpan delta = newStart - grabbed.StartDate;
 
                             foreach (CalendarItem item in _draggedItems)
                             {

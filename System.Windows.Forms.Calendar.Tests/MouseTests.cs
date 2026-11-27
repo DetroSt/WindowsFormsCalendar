@@ -201,6 +201,50 @@ namespace System.Windows.Forms.Calendar.Tests
         }
 
         [TestMethod]
+        public void ItemsRebuiltAndReselectedDuringDrag_DraggedItemFollowsTheMouseWithoutDrifting()
+        {
+            // An application that rebuilds its items (e.g. after saving the previous move or after a
+            // database change notification) and reselects the current one with SetItemSelected while a
+            // drag is in progress. SetItemSelected replaced the dragged item, so the shift was computed from
+            // the new, unmoved copy and added to the dragged item again on every mouse move: the item
+            // ended up on a random, far away date.
+            CalendarItem grabbed = AddTimedItemAndShowIt();
+            CalendarItem reported = null;
+            Cal.ItemDatesChanged += (s, e) => reported = e.Item;
+
+            Cal.MouseDownAt(PointAt(11));
+            Cal.MouseMoveTo(PointAt(12));
+
+            Cal.Items.Clear();
+            CalendarItem copy = Timed(10, 12, "x");
+            Cal.Items.Add(copy);
+            Cal.SetItemSelected(copy);
+
+            for (int i = 0; i < 5; i++)
+                Cal.MouseMoveTo(PointAt(13));
+            Cal.MouseUpAt(PointAt(13));
+
+            Assert.AreSame(grabbed, reported, "The reported item is not the one that was dragged.");
+            Assert.AreEqual(Monday.AddHours(12), grabbed.StartDate);
+            Assert.AreEqual(Monday.AddHours(14), grabbed.EndDate);
+            Assert.AreEqual(Monday.AddHours(10), copy.StartDate, "The reselected copy must not move.");
+        }
+
+        [TestMethod]
+        public void SetItemSelected_ThenClickOnEmptyArea_DoesNotRaiseItemClick()
+        {
+            CalendarItem item = AddTimedItemAndShowIt();
+            bool clicked = false;
+            Cal.ItemClick += (s, e) => clicked = true;
+
+            Cal.SetItemSelected(item);
+            Cal.MouseDownAt(PointAt(15));
+            Cal.MouseUpAt(PointAt(15));
+
+            Assert.IsFalse(clicked, "Selecting an item from code made the next click on an empty area report a click on it.");
+        }
+
+        [TestMethod]
         public void LosingMouseCaptureAfterMouseUp_KeepsMovedItem()
         {
             // WinForms releases the mouse capture after OnMouseUp: that must not undo an ordinary drag.
