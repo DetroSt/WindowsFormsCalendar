@@ -253,10 +253,15 @@ namespace CalendarDemo
             calendar1.ActivateEditMode();
         }
 
-        private void DemoForm_FormClosing(object sender, FormClosingEventArgs e)
+        /// <summary>
+        /// Saves all items to items.xml.
+        /// </summary>
+        /// <exception cref="IOException">The file could not be written; the previous items.xml is unchanged.</exception>
+        /// <exception cref="UnauthorizedAccessException">No write access (e.g. to the program folder).</exception>
+        private void SaveItems()
         {
             List<ItemInfo> lst = new List<ItemInfo>();
-            
+
             foreach (CalendarItem item in _items)
             {
                 lst.Add(new ItemInfo(item.StartDate, item.EndDate, item.Text, item.BackgroundColor, item.Pattern, item.PatternColor));
@@ -285,23 +290,48 @@ namespace CalendarDemo
                     File.Move(temp, target);
                 }
             }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
-            {
-                // E.g. no write access to the program folder. The previous items.xml is unchanged.
-                DialogResult answer = MessageBox.Show(this,
-                    "The items could not be saved to " + target + ":\n" + ex.Message + "\n\nClose without saving?",
-                    "Calendar Demo", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-
-                if (answer == DialogResult.No)
-                {
-                    e.Cancel = true;
-                }
-            }
             finally
             {
                 if (File.Exists(temp))
                 {
                     File.Delete(temp);
+                }
+            }
+        }
+
+        private void calendar1_ItemsDatesChanged(object sender, CalendarItemsEventArgs e)
+        {
+            // Raised once after the user moved (also several selected items together) or resized items,
+            // so a dragged group is saved with a single write instead of one per item.
+            try
+            {
+                SaveItems();
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // The changes stay in memory; saving is tried again when the form closes.
+                MessageBox.Show(this,
+                    "The moved items could not be saved to " + ItemsFile.FullName + ":\n" + ex.Message,
+                    "Calendar Demo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void DemoForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            try
+            {
+                SaveItems();
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // E.g. no write access to the program folder. The previous items.xml is unchanged.
+                DialogResult answer = MessageBox.Show(this,
+                    "The items could not be saved to " + ItemsFile.FullName + ":\n" + ex.Message + "\n\nClose without saving?",
+                    "Calendar Demo", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                if (answer == DialogResult.No)
+                {
+                    e.Cancel = true;
                 }
             }
         }
