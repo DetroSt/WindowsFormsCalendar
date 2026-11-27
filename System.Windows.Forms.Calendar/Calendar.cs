@@ -91,6 +91,13 @@ namespace System.Windows.Forms.Calendar
         public delegate void CalendarItemCancelEventHandler(object sender, CalendarItemCancelEventArgs e);
 
         /// <summary>
+        /// Delegate that supports events related to several items at once
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        public delegate void CalendarItemsEventHandler(object sender, CalendarItemsEventArgs e);
+
+        /// <summary>
         /// Delegate that supports <see cref="CalendarDay"/>-related events
         /// </summary>
         /// <param name="sender"></param>
@@ -153,6 +160,14 @@ namespace System.Windows.Forms.Calendar
         /// </summary>
         [Description("Occurs when an item time range has changed")]
         public event CalendarItemEventHandler ItemDatesChanged;
+
+        /// <summary>
+        /// Occurs once after the user has moved or resized items with the mouse, after
+        /// <see cref="ItemDatesChanged"/> was raised for each of them. Lists all the changed items,
+        /// e.g. to save a group of dragged items in one transaction.
+        /// </summary>
+        [Description("Occurs once after the user has moved or resized items with the mouse")]
+        public event CalendarItemsEventHandler ItemsDatesChanged;
 
         /// <summary>
         /// Occurs when an item is clicked
@@ -224,6 +239,11 @@ namespace System.Windows.Forms.Calendar
         private Rectangle _selectedElementSquare;
         private CalendarItem itemOnState;
         private bool itemOnStateChanged;
+        // Items moved together while dragging: the grabbed item and the other selected items.
+        private List<CalendarItem> _draggedItems = new List<CalendarItem>();
+        // A click without Shift on an item that is already selected keeps the selection, so the whole
+        // group can be dragged; if the mouse is released without moving, only the clicked item stays selected.
+        private bool _narrowSelectionOnMouseUp;
         #endregion
 
         #region Ctor
@@ -1515,6 +1535,33 @@ namespace System.Windows.Forms.Calendar
         }
 
         /// <summary>
+        /// Collects the items to drag with <paramref name="grabbed"/>: the grabbed item and the other selected items.
+        /// </summary>
+        /// <returns><c>false</c> when one of the selected items is locked; the group is then not moved at all,
+        /// so the items do not end up shifted against each other.</returns>
+        private bool PrepareDraggedItems(CalendarItem grabbed)
+        {
+            _draggedItems.Clear();
+            _draggedItems.Add(grabbed);
+
+            foreach (CalendarItem item in Items)
+            {
+                if (item == grabbed || !item.Selected)
+                    continue;
+
+                if (item.Locked)
+                {
+                    _draggedItems.Clear();
+                    return false;
+                }
+
+                _draggedItems.Add(item);
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Deletes the currently selected item
         /// </summary>
         private void DeleteSelectedItems()
@@ -1983,6 +2030,11 @@ namespace System.Windows.Forms.Calendar
             }
         }
 
+        protected virtual void OnItemsDatesChanged(CalendarItemsEventArgs e)
+        {
+            ItemsDatesChanged?.Invoke(this, e);
+        }
+
         protected virtual void OnItemMouseHover(CalendarItemEventArgs e)
         {
             if (ItemMouseHover != null)
@@ -2141,7 +2193,11 @@ namespace System.Windows.Forms.Calendar
                 case CalendarState.Idle:
                     if (hittedItem != null)
                     {
-                        if (!shiftPressed)
+                        // Clicking an item that is already selected keeps the other selected items,
+                        // so they can be dragged together (see _narrowSelectionOnMouseUp).
+                        _narrowSelectionOnMouseUp = !shiftPressed && hittedItem.Selected;
+
+                        if (!shiftPressed && !hittedItem.Selected)
                             ClearSelectedItems();
 
                         hittedItem.SetSelected(true);
@@ -2171,10 +2227,10 @@ namespace System.Windows.Forms.Calendar
                                 SetState(CalendarState.ResizingItem);
                                 itemOnState.SetIsResizingEndDate(true);
                             }
-                            else
+                            else if (PrepareDraggedItems(hittedItem))
                             {
                                 SetState(CalendarState.DraggingItem);
-                            } 
+                            }
                         }
 
                         SetSelectionRange(null, null);
@@ -2263,8 +2319,6 @@ namespace System.Windows.Forms.Calendar
                     //    itemOnStateChanged = true;
                     //    break;
                     case CalendarState.DraggingItem:
-                        TimeSpan duration = itemOnState.Duration;
-                        itemOnState.SetIsDragging(true);
 
                         // Keep the item where it was grabbed relative to the mouse: without the offset
                         // the item's start jumped to the element under the mouse on the first move.
@@ -2281,11 +2335,22 @@ namespace System.Windows.Forms.Calendar
 
                         if (newStart != itemOnState.StartDate)
                         {
-                            itemOnState.StartDate = newStart;
-                            itemOnState.EndDate = newStart.Add(duration);
+                            // The other selected items move by the same amount, so the group keeps its shape
+                            // (by whole days when moving between days, keeping each item's time of day).
+                            TimeSpan delta = newStart - itemOnState.StartDate;
+
+                            foreach (CalendarItem item in _draggedItems)
+                            {
+                                TimeSpan duration = item.Duration;
+                                item.SetIsDragging(true);
+                                item.StartDate = item.StartDate.Add(delta);
+                                item.EndDate = item.StartDate.Add(duration);
+                            }
+
                             Renderer.PerformItemsLayout();
                             Invalidate();
                             itemOnStateChanged = true;
+                            _narrowSelectionOnMouseUp = false;
                         }
                         break;
                     case CalendarState.ResizingItem:
@@ -2361,19 +2426,44 @@ namespace System.Windows.Forms.Calendar
                     }
                     break;
                 case CalendarState.DraggingItem:
-                    if(itemOnStateChanged)
-                        OnItemDatesChanged(new CalendarItemEventArgs(itemOnState));
+                    if (itemOnStateChanged)
+                    {
+                        foreach (CalendarItem item in _draggedItems)
+                            OnItemDatesChanged(new CalendarItemEventArgs(item));
+
+                        OnItemsDatesChanged(new CalendarItemsEventArgs(_draggedItems));
+                    }
                     break;
                 case CalendarState.ResizingItem:
                     if (itemOnStateChanged)
+                    {
                         OnItemDatesChanged(new CalendarItemEventArgs(itemOnState));
+                        OnItemsDatesChanged(new CalendarItemsEventArgs(new[] { itemOnState }));
+                    }
                     break;
                 case CalendarState.EditingItemText:
                     break;
             }
 
+            foreach (CalendarItem item in _draggedItems)
+            {
+                if (item.IsDragging)
+                {
+                    item.SetIsDragging(false);
+                    Invalidate(item);
+                }
+            }
+            _draggedItems.Clear();
+
             if (itemOnState != null)
             {
+                if (_narrowSelectionOnMouseUp)
+                {
+                    // A click (without dragging) on one of several selected items selects only that item.
+                    ClearSelectedItems();
+                    itemOnState.SetSelected(true);
+                }
+
                 itemOnState.SetIsDragging(false);
                 itemOnState.SetIsResizingEndDate(false);
                 itemOnState.SetIsResizingStartDate(false);
@@ -2381,6 +2471,7 @@ namespace System.Windows.Forms.Calendar
                 OnItemClick(new CalendarItemEventArgs(itemOnState));
                 itemOnState = null;
             }
+            _narrowSelectionOnMouseUp = false;
             SetState(CalendarState.Idle);
         }
 

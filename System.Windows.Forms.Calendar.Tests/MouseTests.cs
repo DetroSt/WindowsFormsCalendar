@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Windows.Forms.Calendar;
@@ -71,6 +72,113 @@ namespace System.Windows.Forms.Calendar.Tests
 
             Assert.AreEqual(Monday.AddDays(1), item.StartDate);
             Assert.AreEqual(Monday.AddDays(4).AddSeconds(-1), item.EndDate);
+        }
+
+        /// <summary>Adds the grabbed item (10-12) and a second one (14-15), both selected.</summary>
+        private CalendarItem AddTwoSelectedTimedItems(out CalendarItem other)
+        {
+            CalendarItem grabbed = AddTimedItemAndShowIt();
+            other = Timed(14, 15, "other");
+            Cal.Items.Add(other);
+            grabbed.SetSelected(true);
+            other.SetSelected(true);
+            return grabbed;
+        }
+
+        [TestMethod]
+        public void DraggingOneOfSeveralSelectedItems_MovesAllOfThem()
+        {
+            CalendarItem grabbed = AddTwoSelectedTimedItems(out CalendarItem other);
+            var changed = new List<CalendarItem>();
+            CalendarItemsEventArgs groupEvent = null;
+            int groupEvents = 0;
+            Cal.ItemDatesChanged += (s, e) => changed.Add(e.Item);
+            Cal.ItemsDatesChanged += (s, e) => { groupEvent = e; groupEvents++; };
+
+            Cal.MouseDownAt(PointAt(11));
+            Cal.MouseMoveTo(PointAt(12));
+            Cal.MouseUpAt(PointAt(12));
+
+            Assert.AreEqual(Monday.AddHours(11), grabbed.StartDate);
+            Assert.AreEqual(Monday.AddHours(13), grabbed.EndDate);
+            Assert.AreEqual(Monday.AddHours(15), other.StartDate);
+            Assert.AreEqual(Monday.AddHours(16), other.EndDate);
+            CollectionAssert.AreEquivalent(new[] { grabbed, other }, changed);
+            Assert.AreEqual(1, groupEvents);
+            CollectionAssert.AreEquivalent(new[] { grabbed, other }, groupEvent.Items);
+            Assert.IsTrue(grabbed.Selected && other.Selected, "The moved items should stay selected.");
+            Assert.IsFalse(grabbed.IsDragging || other.IsDragging);
+        }
+
+        [TestMethod]
+        public void DraggingSeveralSelectedAllDayItems_MovesThemByWholeDays()
+        {
+            Cal.SetViewRange(Monday, Monday.AddDays(6));
+            CalendarItem grabbed = AllDay(0, 0, "grabbed");
+            CalendarItem other = AllDay(2, 3, "other");
+            Cal.Items.Add(grabbed);
+            Cal.Items.Add(other);
+            grabbed.SetSelected(true);
+            other.SetSelected(true);
+            int y = Center(grabbed.Bounds).Y;
+
+            Cal.MouseDownAt(new Point(Center(Cal.Days[0].Bounds).X, y));
+            Cal.MouseMoveTo(new Point(Center(Cal.Days[1].Bounds).X, y));
+            Cal.MouseUpAt(new Point(Center(Cal.Days[1].Bounds).X, y));
+
+            Assert.AreEqual(Monday.AddDays(1), grabbed.StartDate);
+            Assert.AreEqual(Monday.AddDays(3), other.StartDate);
+            Assert.AreEqual(Monday.AddDays(5).AddSeconds(-1), other.EndDate);
+        }
+
+        [TestMethod]
+        public void ClickWithoutMovingOnOneOfSeveralSelectedItems_SelectsOnlyThatItem()
+        {
+            CalendarItem grabbed = AddTwoSelectedTimedItems(out CalendarItem other);
+            bool datesChanged = false;
+            Cal.ItemDatesChanged += (s, e) => datesChanged = true;
+
+            Cal.MouseDownAt(PointAt(11));
+            Cal.MouseUpAt(PointAt(11));
+
+            Assert.IsTrue(grabbed.Selected);
+            Assert.IsFalse(other.Selected);
+            Assert.AreEqual(Monday.AddHours(14), other.StartDate);
+            Assert.IsFalse(datesChanged);
+        }
+
+        [TestMethod]
+        public void DraggingAnUnselectedItem_MovesOnlyThatItem()
+        {
+            CalendarItem grabbed = AddTimedItemAndShowIt();
+            CalendarItem other = Timed(14, 15, "other");
+            Cal.Items.Add(other);
+            other.SetSelected(true);
+
+            Cal.MouseDownAt(PointAt(11));
+            Cal.MouseMoveTo(PointAt(12));
+            Cal.MouseUpAt(PointAt(12));
+
+            Assert.AreEqual(Monday.AddHours(11), grabbed.StartDate);
+            Assert.AreEqual(Monday.AddHours(14), other.StartDate);
+            Assert.IsFalse(other.Selected);
+        }
+
+        [TestMethod]
+        public void DraggingSelectedItems_WithALockedOneSelected_MovesNothing()
+        {
+            CalendarItem grabbed = AddTwoSelectedTimedItems(out CalendarItem other);
+            other.Locked = true;
+            bool datesChanged = false;
+            Cal.ItemDatesChanged += (s, e) => datesChanged = true;
+
+            Cal.MouseDownAt(PointAt(11));
+            Cal.MouseMoveTo(PointAt(12));
+            Cal.MouseUpAt(PointAt(12));
+
+            Assert.AreEqual(Monday.AddHours(10), grabbed.StartDate);
+            Assert.AreEqual(Monday.AddHours(14), other.StartDate);
+            Assert.IsFalse(datesChanged);
         }
     }
 
